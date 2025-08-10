@@ -1,35 +1,11 @@
-# Исполняемые файлы
+*.vcxproj
+*.vcxproj.filters
+fonts/
+sdl/
+sdl_ttf/
 *.exe
-*.dll
-*.pdb
-
-# Объектные файлы
 *.obj
-*.o
-
-# Файлы Visual Studio
-.vs/
-*.vcxproj.user
-*.sln.docstates
 Debug/
 Release/
-x64/
-*.log
-
-# Временные файлы
-*.tmp
-*.temp
-*~
-
-# Пользовательские настройки IDE
-*.suo
+.vs/
 *.user
-
-# Файлы сборки
-build/
-bin/
-obj/
-
-# Системные файлы Windows
-Thumbs.db
-Desktop.ini
