@@ -1,0 +1,35 @@
+# Исполняемые файлы
+*.exe
+*.dll
+*.pdb
+
+# Объектные файлы
+*.obj
+*.o
+
+# Файлы Visual Studio
+.vs/
+*.vcxproj.user
+*.sln.docstates
+Debug/
+Release/
+x64/
+*.log
+
+# Временные файлы
+*.tmp
+*.temp
+*~
+
+# Пользовательские настройки IDE
+*.suo
+*.user
+
+# Файлы сборки
+build/
+bin/
+obj/
+
+# Системные файлы Windows
+Thumbs.db
+Desktop.ini
