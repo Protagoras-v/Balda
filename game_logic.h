@@ -8,13 +8,13 @@ typedef struct Move Move;
 
 typedef struct GameSettings GameSettings;
 
-typedef struct GameState GameState;
+typedef struct Game Game;
 
+//еще нужно добавить сюда аргумент настроек
+Game* game_create(Dictionary* dict);
 
-GameField* field_create(int width, int height);
+void game_destroy(Game* game);
 
-void field_destroy(GameField* field);
+int game_get_cell(GameField* field, int x, int y, unsigned char* res);
 
-int get_cell(GameField* field, int x, int y, unsigned char* res);
-
-int insert_letter_in_cell(GameField* field, int x, int y, unsigned char letter, int player_id);
+int game_insert_letter_into_cell(GameField* field, int x, int y, unsigned char letter, int player_id);
