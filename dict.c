@@ -197,10 +197,10 @@ bool dict_word_exists(Dictionary* dict, const char* word) {
 	return is_word_in_trie(dict->root, word);
 }
 
-int dict_add_word(Dictionary* dict, const char* word) {
+StatusCode dict_add_word(Dictionary* dict, const char* word) {
 	if (!is_word_valid(word)) {
 		printf("Слово %s содержит недопустимые символы!\n", word);
-		return 0;
+		return DICT_ERROR_INVALID_WORD;
 	}
 	insert_word_into_trie(dict->root, word);
 	dict->total_count++;
@@ -209,7 +209,7 @@ int dict_add_word(Dictionary* dict, const char* word) {
 	FILE* file = fopen("dictionary.txt", "a");
 	if (file == NULL) {
 		fprintf(stderr, "Не удалось открыть файл dictionary.txt\n");
-		return 1;
+		return ERROR_FILE_NO_FOUND;
 	}
 	fprintf(file, "%s\n", word);
 	fclose(file);
@@ -224,14 +224,14 @@ int dict_add_word(Dictionary* dict, const char* word) {
 			char** new_candidates = realloc(dict->candidates, dict->candidates_capacity * 2 * sizeof(char*));
 			if (new_candidates == NULL) {
 				fprintf(stderr, "Ошибка при перераспределении памяти для new_candidates\n");
-				return NULL;
+				return ERROR_OUT_OF_MEMORY;
 			}
 			dict->candidates = new_candidates;
 			dict->candidates_capacity *= 2;
 		}
 	}
 
-	return 1;
+	return SUCCESS;
 }
 
 
