@@ -23,6 +23,10 @@ StatusCode game_try_place_letter(Game* game, int x, int y, char letter);
 
 StatusCode game_add_cell_into_word(Game* game, int x, int y);
 
-StatusCode game_confirm_move(Game* game);
+StatusCode game_confirm_move(Game* game, Dictionary* dict);
 
-StatusCode game_cancel_move(Game* game);
+StatusCode game_cancel_word_selection(Game* game);
+
+StatusCode game_clear_move(Game* game);
+
+//также нужны функции, которые провер€ют, есть ли клетка в выделенном слове дл€ UI

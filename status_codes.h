@@ -17,15 +17,14 @@ typedef enum {
     //Ошибки игрового поля (200-299)
     FIELD_INVALID_COORDINATES = 200,
     FIELD_INVALID_LETTER = 201,
-    FIELD_INVALID_CELL = 202,//нельзя добавить в слово
+    FIELD_INVALID_CELL = 202,//нельзя добавить клетку в слово
     FIELD_CELL_OCCUPIEDL = 203,
     FIELD_CELL_EMPTY = 204,
     FIELD_CELL_NOT_CONNECTED = 205,
+    FIELD_WORD_ALREADY_EMPTY = 206,
 
     //Ошибки игровой логики (300-399)
-    GAME_ERROR_INVALID_MOVE = 300,
-    GAME_ERROR_NOT_PLAYER_TURN = 301,
-    GAME_ERROR_GAME_FINISHED = 302,
+    GAME_WORD_DOESNT_EXIST = 300,
 
     //Ошибки ИИ (400-499)
     AI_ERROR_NO_MOVES_FOUND = 400,

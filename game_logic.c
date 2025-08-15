@@ -8,6 +8,11 @@
 #define FIELD_HEIGHT 5
 #define MAX_WORD_LEN 100
 
+typedef struct WordCell {
+	int y, x;
+	char letter;
+} WordCell;
+
 struct Cell {
 	char letter;
 	int player_id : 2; // 0 - клетка пустая, 1 - игрок, 2 - компьютер
@@ -20,10 +25,9 @@ struct GameField {
 };
 
 struct Move {
-	int x, y; //координаты вставляемой буквы
+	int y, x; //координаты вставляемой буквы
 	char letter;
-	//координаты ячеек, составляющих слово
-	int word[MAX_WORD_LEN][2]; // [0] - y, [1] - x
+	WordCell word[MAX_WORD_LEN];
 	int word_len;
 	int score;
 };
@@ -40,7 +44,7 @@ struct Game {
 	Move current_move;
 	int max_wait_time;
 	int difficulty : 2;
-	int current_player : 1;
+	int current_player : 2; //0 isnt used, because 0 is an empty cell
 	int scores[2]; 
 	int game_finished : 1;
 };
@@ -103,6 +107,11 @@ static void field_destroy(GameField* field) {
 	}
 	free(field->grid);
 	free(field);
+}
+
+static void field_set_letter(GameField* field, int y, int x, unsigned char letter, int player_id) {
+	field->grid[y][x].letter = letter;
+	field->grid[y][x].player_id = player_id;
 }
 
 
@@ -175,7 +184,7 @@ static bool is_cell_next_to_previous(int y, int x, int prev_y, int prev_x) {
 	return 0;
 }
 
-static bool is_cell_in_word(int word[MAX_WORD_LEN][2], int word_len, int x, int y) {
+static bool is_cell_in_word(int word[MAX_WORD_LEN][2], int word_len, int y, int x) {
 	for (int i = 0; i < word_len; i++) {
 		if (word[i][0] == y && word[i][1] == x) {
 			return 1;
@@ -184,9 +193,28 @@ static bool is_cell_in_word(int word[MAX_WORD_LEN][2], int word_len, int x, int 
 	return 0;
 }
 
-static StatusCode field_set_letter(GameField* field, int y, int x, unsigned char letter, int player_id) {
-	field->grid[y][x].letter = letter;
-	field->grid[y][x].player_id = player_id;
+static bool is_word_valid(Dictionary* dict, WordCell word[MAX_WORD_LEN], int word_len) {
+	char word_str[MAX_WORD_LEN];
+	int i = 0;
+	while (i < word_len) {
+		word_str[i] = word[i++].letter;
+	}
+	word_str[i] = '\0';
+	
+	return dict_word_exists(dict, word_str);
+}
+
+static StatusCode clear_word_selection(Move* move) {
+	if (move->word_len == 0) {
+		return FIELD_WORD_ALREADY_EMPTY;
+	}
+	for (int i = 0; i < move->word_len; i++) {
+		move->word[i].y = -1;
+		move->word[i].x = -1;
+		move->word[i].letter = '\0';
+		move->score--;
+	}
+	move->word_len = 0;
 	return SUCCESS;
 }
 
@@ -203,7 +231,7 @@ Game* game_create(Dictionary* dict) {
 		return NULL;
 	}
 	//это должно браться из настроек.
-	game->current_player = 0;
+	game->current_player = 1;
 	//это должно браться из настроек.
 	game->difficulty = 0;
 	//это должно браться из настроек.
@@ -217,23 +245,26 @@ Game* game_create(Dictionary* dict) {
 	game->current_move.score = 0;
 	game->current_move.x = -1;
 	game->current_move.y = -1;
-	//инициализируем 0-ями массив с координатами клеток, составляющих слово
+	//инициализируем массив с координатами клеток, составляющих слово
 	for (int i = 0; i < MAX_WORD_LEN; i++) {
-		game->current_move.word[i][0] = 0;
-		game->current_move.word[i][1] = 0;
+		game->current_move.word[i].y = -1;
+		game->current_move.word[i].x = -1;
+		game->current_move.word[i].letter = '\0';
 	}
 	game->current_move.word_len = 0;
 }
 
 
 //В SDL CP1251 Будет преобразовываться в UTF8, можно будет написать простую функцию конвертер, даже отдельно 33 случая рассмотреть if`ами
-StatusCode game_get_cell(GameField* field, int x, int y, unsigned char* res) {
-	if (!is_cell_coordinates_valid(field, y, x)) return FIELD_INVALID_COORDINATES;
+StatusCode game_get_cell(Game* game, int x, int y, unsigned char* res) {
+	if (game == NULL) return ERROR_NULL_POINTER;
+	if (!is_cell_coordinates_valid(game->field, y, x)) return FIELD_INVALID_COORDINATES;
 
-	return field->grid[y][x].letter;
+	return game->field->grid[y][x].letter;
 }
 
 StatusCode game_try_place_letter(Game* game, int y,int x, char letter) {
+	if (game == NULL) return ERROR_NULL_POINTER;
 	if (!is_letter_valid(letter)) return FIELD_INVALID_LETTER;
 	if (!is_cell_coordinates_valid(game->field, y, x)) return FIELD_INVALID_COORDINATES;
 	if (!is_cell_empty(game->field, y, x)) return FIELD_CELL_OCCUPIEDL;
@@ -249,6 +280,7 @@ StatusCode game_try_place_letter(Game* game, int y,int x, char letter) {
 }
 
 StatusCode game_add_cell_into_word(Game* game, int x, int y) {
+	if (game == NULL) return ERROR_NULL_POINTER;
 	if (!is_cell_coordinates_valid(game->field, y, x)) return FIELD_INVALID_COORDINATES;
 	if (is_cell_empty(game->field, y, x)) return FIELD_CELL_EMPTY;
 
@@ -256,19 +288,23 @@ StatusCode game_add_cell_into_word(Game* game, int x, int y) {
 
 	//если первая буква в слове
 	if (move->word_len == 0) {
-		move->word[move->word_len][0] = y;
-		move->word[move->word_len][1] = x;
+		move->word[move->word_len].y = y;
+		move->word[move->word_len].x = x;
+		move->word[move->word_len].letter = game->field->grid[y][x].letter;
 		move->word_len++;
+		move->score++;
 		return SUCCESS;
 	}
 	//если это не первая буква в слове, то нужно проверить, нет ли ее уже в слове и соединена ли она с предыдущей буквой
 	else {
-		int prev_y = move->word[move->word_len - 1][0];
-		int prev_x = move->word[move->word_len - 1][1];
-		if (is_cell_next_to_previous(y, x, prev_y, prev_x) && !is_cell_in_word(move->word, move->word_len, x, y)) {
-			move->word[move->word_len][0] = y;
-			move->word[move->word_len][1] = x;
+		int prev_y = move->word[move->word_len - 1].y;
+		int prev_x = move->word[move->word_len - 1].x;
+		if (is_cell_next_to_previous(y, x, prev_y, prev_x) && !is_cell_in_word(move->word, move->word_len, y, x)) {
+			move->word[move->word_len].y = y;
+			move->word[move->word_len].x = x;
+			move->word[move->word_len].letter = game->field->grid[y][x].letter;
 			move->word_len++;
+			move->score++;
 			return SUCCESS;
 		}
 		else {
@@ -278,8 +314,40 @@ StatusCode game_add_cell_into_word(Game* game, int x, int y) {
 	}
 }
 
-bool game_confirm_move(Game* game) {
-
+StatusCode game_cancel_word_selection(Game* game) {
+	if (game == NULL) return ERROR_NULL_POINTER;
+	return clear_word_selection(&game->current_move);
 }
 
-bool game_cancel_move(Game* game);
+//clear letter and word selection if it not cleared already
+StatusCode game_clear_move(Game* game) {
+	if (game == NULL) return ERROR_NULL_POINTER;
+
+	Move* move = &game->current_move;
+	clear_word_selection(move);
+
+	move->letter = '\0';
+	move->y = -1;
+	move->x = -1;
+
+	return SUCCESS;
+}
+
+StatusCode game_confirm_move(Game* game, Dictionary* dict) {
+	if (game == NULL) return ERROR_NULL_POINTER;
+	if (dict == NULL) return ERROR_NULL_POINTER;
+
+	Move* move = &game->current_move;
+	if (is_word_valid(dict, move->word, move->word_len)) {
+		//apply changes
+		game->scores[game->current_player] = move->score;
+		field_set_letter(game->field, move->y, move->x, move->letter, game->current_player);
+		game_clear_move(game);
+		//pass the turn
+		game->current_player = (game->current_player == 1) ? 2 : 1;
+	}
+	else {
+		return GAME_WORD_DOESNT_EXIST;
+	}
+}
+
