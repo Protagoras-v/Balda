@@ -6,6 +6,7 @@
 #include <string.h>
 
 #include "dict.h"
+#include "common.h"
 
 typedef struct TrieNode {
 	struct TrieNode* children[33];
@@ -22,37 +23,6 @@ struct Dictionary {
 	int candidates_capacity;
 };
 
-static bool is_it_ru_letter(const unsigned char c) {
-	if ((c >= 192 && c <= 223) || //А-Я
-		(c >= 224 && c <= 255) || //а-я
-		(c == 168) || //Ё
-		(c == 184)) { //ё 
-		return 1;
-	}
-	return 0;
-}
-
-static bool is_word_valid(const unsigned char* word) {
-	char* s = word;
-	while (*s != '\0') {
-		if (!is_it_ru_letter(*s)) {
-			return 0;
-		}
-		s++;
-	}
-	return 1;
-}
-
-//cp1251
-static unsigned char tolower(unsigned char c) {
-	if (c >= 192 && c <= 223) {  //А-Я
-		return c + 32;
-	}
-	if (c == 168) { //Ё
-		return 184; //ё
-	}
-	return c;
-}
 
 //возвращает позицию русской буквы в алфавите(1-33)
 static int char_to_index(unsigned char letter) {
