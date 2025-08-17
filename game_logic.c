@@ -1,5 +1,6 @@
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 
 #include "game_logic.h"
 #include "dict.h"
@@ -7,6 +8,13 @@
 
 #define FIELD_SIZE 5
 #define MAX_WORD_LEN 100
+#define STARTING_PLAYER_WORDS_CAPACITY 50
+
+typedef struct PlayerWords {
+	char** words;
+	int capacity;
+	int count;
+} PlayerWords;
 
 typedef struct WordCell {
 	int y, x;
@@ -48,6 +56,9 @@ struct Game {
 	unsigned int current_player : 2; //0 isnt used, because 0 is an empty cell
 	int scores[2]; 
 	unsigned int game_finished : 1;
+
+	PlayerWords player1_words;
+	PlayerWords player2_words;
 };
 
 
@@ -192,16 +203,32 @@ static bool is_cell_in_word(WordCell word[MAX_WORD_LEN], int word_len, int y, in
 	return 0;
 }
 
-static bool is_word_exists(Dictionary* dict, WordCell word[MAX_WORD_LEN], int word_len) {
-	char word_str[MAX_WORD_LEN];
+static bool is_word_used(Game* game, char* buffer) {
+	//player 1
+	PlayerWords p1 = game->player1_words;
+	PlayerWords p2 = game->player2_words;
+
+	for (int i = 0; i < p1.count; i++) {
+		if (strcmp(p1.words[i], buffer) == 0) {
+			return 1;
+		}
+	}
+	for (int i = 0; i < p2.count; i++) {
+		if (strcmp(p2.words[i], buffer) == 0) {
+			return 1;
+		}
+	}
+	return 0;
+}
+
+static void WordCell_to_char(WordCell source[], char dest[], int word_len) {
 	int i = 0;
 	while (i < word_len) {
-		word_str[i] = word[i++].letter;
+		dest[i] = source[i++].letter;
 	}
-	word_str[i] = '\0';
-	
-	return dict_word_exists(dict, word_str);
+	dest[i] = '\0';
 }
+
 
 static StatusCode clear_word_selection(Move* move) {
 	if (move->word_len == 0) {
@@ -217,6 +244,33 @@ static StatusCode clear_word_selection(Move* move) {
 	return SUCCESS;
 }
 
+static StatusCode add_player_word(PlayerWords* p, char* word) {
+	int size = strlen(word) + 1;
+	p->words[p->count] = malloc(sizeof(char) * size);
+	if (p->words[p->count] == NULL) {
+		return ERROR_OUT_OF_MEMORY;
+	}
+	else {
+		memcpy(p->words[p->count], word, sizeof(char) * size);
+		p->count++;
+
+		if (p->count == p->capacity) {
+			char** new_words = realloc(p->words, sizeof(char*) * p->capacity * 2);
+			if (new_words == NULL) return ERROR_OUT_OF_MEMORY;
+			p->words = new_words;
+			p->capacity *= 2;
+		}
+		
+		return SUCCESS;
+	}
+}
+
+
+
+
+//----------------------------------------
+//---------------INTERFACES---------------
+//----------------------------------------
 
 Game* game_create(Dictionary* dict) {
 	Game* game = malloc(sizeof(Game));
@@ -239,6 +293,18 @@ Game* game_create(Dictionary* dict) {
 	game->scores[0] = 0;
 	game->scores[1] = 0;
 
+	//players words
+	game->player1_words.words = malloc(sizeof(char*) * STARTING_PLAYER_WORDS_CAPACITY);
+	game->player2_words.words = malloc(sizeof(char*) * STARTING_PLAYER_WORDS_CAPACITY);
+	if (game->player1_words.words == NULL || game->player2_words.words == NULL) {
+		printf("Ошибка при выделении памяти для player_words!\n");
+		return NULL;
+	}
+	game->player1_words.capacity = STARTING_PLAYER_WORDS_CAPACITY;
+	game->player2_words.capacity = STARTING_PLAYER_WORDS_CAPACITY;
+	game->player1_words.count = 0;
+	game->player2_words.count = 0;
+
 	//Move
 	game->current_move.letter = 0;
 	game->current_move.score = 0;
@@ -255,14 +321,6 @@ Game* game_create(Dictionary* dict) {
 
 void game_destroy(Game* game);
 
-
-//В SDL CP1251 Будет преобразовываться в UTF8, можно будет написать простую функцию конвертер, даже отдельно 33 случая рассмотреть if`ами
-StatusCode game_get_cell(Game* game, int x, int y, unsigned char* res) {
-	if (game == NULL) return ERROR_NULL_POINTER;
-	if (!is_cell_coordinates_valid(game->field, y, x)) return FIELD_INVALID_COORDINATES;
-
-	return game->field->grid[y][x].letter;
-}
 
 StatusCode game_try_place_letter(Game* game, int y,int x, char letter) {
 	if (game == NULL) return ERROR_NULL_POINTER;
@@ -339,14 +397,48 @@ StatusCode game_confirm_move(Game* game, Dictionary* dict) {
 	if (dict == NULL) return ERROR_NULL_POINTER;
 
 	Move* move = &game->current_move;
-	if (is_word_exists(dict, move->word, move->word_len)
-		&& is_cell_in_word(move->word, move->word_len, move->y, move->x)) { //is new letter in the word
+
+	if (move->word_len < 2) {
+		clear_word_selection(move);
+		return GAME_WORD_EMPTY;
+	}
+	char buffer[MAX_WORD_LEN + 1];
+	WordCell_to_char(move->word, buffer, move->word_len);
+
+	if (!is_cell_in_word(move->word, move->word_len, move->y, move->x)) {
+		clear_word_selection(move);
+		return GAME_WORD_DOESNT_CONTAIN_LETTER;
+	}
+	if (is_word_used(game, buffer)) {
+		clear_word_selection(move);
+		return GAME_WORD_USED;
+	}
+
+	if (dict_word_exists(dict, buffer)) {
 		//apply changes
-		game->scores[game->current_player] = move->score;
+		game->scores[game->current_player - 1] = move->score;
 		confirm_letter(game->field, move->y, move->x);
-		game_clear_move(game);
+
+		clear_word_selection(move);
+		move->letter = '\0';
+		move->y = -1;
+		move->x = -1;
+
+		//add player`s word
+		if (game->current_player == 1) {
+			StatusCode code = add_player_word(&game->player1_words, buffer);
+			if (code != SUCCESS) return code;
+		}
+		else if (game->current_player == 2) {
+			StatusCode code = add_player_word(&game->player2_words, buffer);
+			if (code != SUCCESS) return code;
+		}
+		
 		//pass the turn
 		game->current_player = (game->current_player == 1) ? 2 : 1;
+		move->score = (game->current_player == 0) ? game->scores[1] : game->scores[0];
+
+		return SUCCESS;
 	}
 	else {
 		return GAME_INVALID_WORD;
@@ -354,11 +446,41 @@ StatusCode game_confirm_move(Game* game, Dictionary* dict) {
 }
 
 
+
+//---------------------------------
+//---------------GET---------------
+//---------------------------------
+
+//В SDL CP1251 Будет преобразовываться в UTF8, можно будет написать простую функцию конвертер, даже отдельно 33 случая рассмотреть if`ами
+StatusCode game_get_cell(Game* game, int x, int y, unsigned char* res) {
+	if (game == NULL) return ERROR_NULL_POINTER;
+	if (!is_cell_coordinates_valid(game->field, y, x)) return FIELD_INVALID_COORDINATES;
+
+	return game->field->grid[y][x].letter;
+}
+
 int game_get_player_id(Game* game) {
 	if (game == NULL) return 0;
 	return game->current_player;
 }
 
+
+StatusCode game_get_player_words(Game* game, int player_id, char*** words, int* count) {
+	if (game == NULL) return ERROR_NULL_POINTER;
+
+	if (player_id == 1) {
+		*words = game->player1_words.words;
+		*count = game->player1_words.count;
+		return SUCCESS;
+	}
+	else if (player_id == 2) {
+		*words = game->player2_words.words;
+		*count = game->player2_words.count;
+		return SUCCESS;
+	}
+
+	return GAME_INVALID_ID;
+}
 
 
 void print_field(Game* game) {

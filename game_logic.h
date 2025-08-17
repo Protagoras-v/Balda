@@ -19,8 +19,6 @@ Game* game_create(Dictionary* dict);
 
 void game_destroy(Game* game);
 
-StatusCode game_get_cell(GameField* field, int y, int x, unsigned char* res);
-
 StatusCode game_try_place_letter(Game* game, int y, int x, char letter);
 
 StatusCode game_add_cell_into_word(Game* game, int y, int x);
@@ -34,7 +32,11 @@ StatusCode game_clear_move(Game* game);
 void print_field(Game* game);
 
 //get
+StatusCode game_get_cell(GameField* field, int y, int x, unsigned char* res);
+
 int game_get_player_id(Game* game);
+
+StatusCode game_get_player_words(Game* game, int player_id, char*** words, int* count);
 
 //также нужны функции, которые провер€ют, есть ли клетка в выделенном слове дл€ UI
 

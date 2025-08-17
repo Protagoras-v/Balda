@@ -27,8 +27,11 @@ struct Dictionary {
 //возвращает позицию русской буквы в алфавите(1-33)
 static int char_to_index(unsigned char letter) {
 	letter = tolower(letter);
-	if (letter >= 224 && letter <= 255) { //а-я
+	if (letter >= 224 && letter <= 229) { //а-е
 		return letter - 224;
+	}
+	else if (letter >= 230 && letter <= 255) {//ж-я (т.к ё не по порядку в CP1251) 
+		return letter - 223;
 	}
 	else if (letter == 184) { //ё
 		return 6;
@@ -70,7 +73,7 @@ static TrieNode* clear_trie(TrieNode* node) {
 static bool is_word_in_trie(TrieNode* root, const char* word) {
 	TrieNode* current = root;
 	for (int i = 0; word[i]; i++) {
-		char letter = word[i];
+		unsigned char letter = word[i];
 		int index = char_to_index(letter);
 		if (current->children[index] == NULL) {
 			return 0;

@@ -25,6 +25,10 @@ typedef enum {
 
     //Ошибки игровой логики (300-399)
     GAME_INVALID_WORD = 300,
+    GAME_WORD_EMPTY = 301,
+    GAME_WORD_DOESNT_CONTAIN_LETTER = 302,
+    GAME_WORD_USED = 303,
+    GAME_INVALID_ID = 304,
 
     //Ошибки ИИ (400-499)
     AI_ERROR_NO_MOVES_FOUND = 400,

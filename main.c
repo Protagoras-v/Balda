@@ -18,9 +18,37 @@ int main() {
 	Dictionary* dict = dict_init("dictionary.txt");
 	Game* game = game_create(dict);
 
+	unsigned char u = 'р';
+	printf("%u\n", u);
 	bool f = 1;
 
 	while (f) {
+		char **p1_words, **p2_words;
+		int p1w_count, p2w_count;
+		StatusCode code;
+		code = game_get_player_words(game, 1, &p1_words, &p1w_count);
+		if (code != SUCCESS) {
+			printf("Ошибка получения слов\n");
+			return 1;
+		}
+		code = game_get_player_words(game, 2, &p2_words, &p2w_count);
+		if (code != SUCCESS) {
+			printf("Ошибка получения слов\n");
+			return 1;
+		}
+
+		printf("Слова, поставленные игроком 1: ");
+		for (int i = 0; i < p1w_count; i++) {
+			printf("%s ", p1_words[i]);
+		}
+		printf("\n");
+
+		printf("Слова, поставленные игроком 2: ");
+		for (int i = 0; i < p2w_count; i++) {
+			printf("%s ", p2_words[i]);
+		}
+		printf("\n");
+
 		printf("Ход игрока с id: %d\n", game_get_player_id(game));
 		print_field(game);
 		int x, y, len;
@@ -32,9 +60,10 @@ int main() {
 		printf("Введите букву: ");
 		scanf(" %c", &c);
 
-		StatusCode code = game_try_place_letter(game, y, x, c);
+		code = game_try_place_letter(game, y, x, c);
 		switch (code) {
 		case SUCCESS:
+			print_field(game);
 			printf("Введите длину слова: \n");
 			scanf("%d", &len);
 			int i = 0;
@@ -58,14 +87,10 @@ int main() {
 					i++;
 				}
 			}
-			/*code = game_confirm_move(game, dict);
-			if (code == GAME_INVALID_WORD) {
-				printf("Такого слова нет в словаре!\n");
-			}
-			else if (code == SUCCESS) {
-				printf("УСПЕХ!\n");
-			}*/
-			code = game_clear_move(game);
+			code = game_confirm_move(game, dict);
+			if (code == SUCCESS) printf("УСПЕХ!\n");
+			else if (code == GAME_WORD_USED) printf("СЛОВО УЖЕ ИСПОЛЬЗОВАНО\n");
+			else if (code == GAME_WORD_DOESNT_CONTAIN_LETTER) printf("СЛОВО ДОЛЖНО СОДЕРЖАТЬ ВСТАВЛЕННУЮ БУКВУ\n");
 
 			break;
 		case FIELD_INVALID_COORDINATES:
