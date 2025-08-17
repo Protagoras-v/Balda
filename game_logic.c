@@ -268,9 +268,9 @@ static StatusCode add_player_word(PlayerWords* p, char* word) {
 
 
 
-//----------------------------------------
-//---------------INTERFACES---------------
-//----------------------------------------
+//-----------------------------------------
+//---------------INTERFACES----------------
+//-----------------------------------------
 
 Game* game_create(Dictionary* dict) {
 	Game* game = malloc(sizeof(Game));
