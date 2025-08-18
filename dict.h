@@ -11,9 +11,9 @@ void dict_destroy(Dictionary* dict);
 
 bool dict_word_exists(Dictionary* dict, const char* word);
 
-char* dict_get_starting_word(Dictionary* dict);
+StatusCode dict_get_starting_word(Dictionary* dict, char* st_word[]);
 
-int dict_add_word(Dictionary* dict, const char* word);
+StatusCode dict_add_word(Dictionary* dict, const char* word);
 
 //int dict_save(Dictionary* dict, const char* filename);
 

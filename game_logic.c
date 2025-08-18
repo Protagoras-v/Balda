@@ -1,3 +1,5 @@
+#define _CRT_SECURE_NO_WARNINGS
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -7,8 +9,16 @@
 #include "common.h"
 
 #define FIELD_SIZE 5
+
 #define MAX_WORD_LEN 100
+#define MIN_WORD_LEN 3
+
 #define STARTING_PLAYER_WORDS_CAPACITY 50
+
+#define DEFAULT_DIFFICULTY 0
+#define DEFAULT_MAX_TIME 10
+#define DEFAULT_FIRST_PLAYER 1
+
 
 typedef struct PlayerWords {
 	char** words;
@@ -44,15 +54,13 @@ struct Move {
 struct GameSettings {
 	int time_limit; //ms
 	unsigned int difficulty : 2;
-	unsigned int first_player : 1;
-	char start_word[32];
+	unsigned int first_player : 2; // 0 isnt used, because 0 is an empty cell
 };
 
 struct Game {
+	GameSettings* settings;
 	GameField* field;
 	Move current_move;
-	int max_wait_time;
-	unsigned int difficulty : 2;
 	unsigned int current_player : 2; //0 isnt used, because 0 is an empty cell
 	int scores[2]; 
 	unsigned int game_finished : 1;
@@ -97,8 +105,9 @@ static GameField* field_create(Dictionary* dict) {
 	}
 
 	//вставляем стартовое слово
-	char* word = dict_get_starting_word(dict);
-	if (word == NULL) {
+	char word[6];
+	if (dict_get_starting_word(dict, word) == ERROR_OUT_OF_MEMORY) {
+		fprintf(stderr, "Ошибка при формировании стартового слова!\n");
 		return NULL;
 	}
 	for (int i = 0; i < 5; i++) {
@@ -268,11 +277,13 @@ static StatusCode add_player_word(PlayerWords* p, char* word) {
 
 
 
-//-----------------------------------------
-//---------------INTERFACES----------------
-//-----------------------------------------
 
-Game* game_create(Dictionary* dict) {
+//-----------------------------------------------------------------------------------------------------
+//---------------------------------------------INTERFACES----------------------------------------------
+//-----------------------------------------------------------------------------------------------------
+
+
+Game* game_create(GameSettings* settings, Dictionary* dict) {
 	Game* game = malloc(sizeof(Game));
 	if (game == NULL) {
 		fprintf(stderr, "Ошибка при выделении памяти для game\n");
@@ -281,25 +292,32 @@ Game* game_create(Dictionary* dict) {
 	game->field = field_create(dict);
 	if (game->field == NULL) {
 		fprintf(stderr, "Ошибка при создании поля\n");
+		free(game);
 		return NULL;
 	}
-	//это должно браться из настроек.
-	game->current_player = 1;
-	//это должно браться из настроек.
-	game->difficulty = 0;
-	//это должно браться из настроек.
-	game->max_wait_time = 10000;
+	game->settings = settings;
 	game->game_finished = 0;
 	game->scores[0] = 0;
 	game->scores[1] = 0;
 
 	//players words
 	game->player1_words.words = malloc(sizeof(char*) * STARTING_PLAYER_WORDS_CAPACITY);
-	game->player2_words.words = malloc(sizeof(char*) * STARTING_PLAYER_WORDS_CAPACITY);
-	if (game->player1_words.words == NULL || game->player2_words.words == NULL) {
+	if (game->player1_words.words == NULL) {
 		printf("Ошибка при выделении памяти для player_words!\n");
+		free(game->field);
+		free(game);
 		return NULL;
 	}
+
+	game->player2_words.words = malloc(sizeof(char*) * STARTING_PLAYER_WORDS_CAPACITY);
+	if (game->player2_words.words == NULL) {
+		printf("Ошибка при выделении памяти для player_words!\n");
+		free(game->player1_words.words);
+		free(game->field);
+		free(game);
+		return NULL;
+	}
+
 	game->player1_words.capacity = STARTING_PLAYER_WORDS_CAPACITY;
 	game->player2_words.capacity = STARTING_PLAYER_WORDS_CAPACITY;
 	game->player1_words.count = 0;
@@ -319,7 +337,23 @@ Game* game_create(Dictionary* dict) {
 	game->current_move.word_len = 0;
 }
 
-void game_destroy(Game* game);
+void game_destroy(Game* game) {
+	field_destroy(game->field);
+	game->settings = NULL;
+
+	//p words
+	for (int i = 0; i < game->player1_words.count; i++) {
+		free(game->player1_words.words[i]);
+	}
+	free(game->player1_words.words);
+
+	for (int i = 0; i < game->player2_words.count; i++) {
+		free(game->player2_words.words[i]);
+	}
+	free(game->player2_words.words);
+
+	free(game);
+}
 
 
 StatusCode game_try_place_letter(Game* game, int y,int x, char letter) {
@@ -345,6 +379,11 @@ StatusCode game_add_cell_into_word(Game* game, int y, int x) {
 	if (is_cell_empty(game->field, y, x)) return FIELD_CELL_EMPTY;
 
 	Move* move = &game->current_move;
+
+	//if letter is not placed yet
+	if (move->letter == '\0') {
+		return GAME_LETTER_IS_MISSING;
+	}
 
 	//если первая буква в слове
 	if (move->word_len == 0) {
@@ -392,13 +431,14 @@ StatusCode game_clear_move(Game* game) {
 	return SUCCESS;
 }
 
+
 StatusCode game_confirm_move(Game* game, Dictionary* dict) {
 	if (game == NULL) return ERROR_NULL_POINTER;
 	if (dict == NULL) return ERROR_NULL_POINTER;
 
 	Move* move = &game->current_move;
 
-	if (move->word_len < 2) {
+	if (move->word_len < MIN_WORD_LEN) {
 		clear_word_selection(move);
 		return GAME_WORD_EMPTY;
 	}
@@ -410,7 +450,7 @@ StatusCode game_confirm_move(Game* game, Dictionary* dict) {
 		return GAME_WORD_DOESNT_CONTAIN_LETTER;
 	}
 	if (is_word_used(game, buffer)) {
-		clear_word_selection(move);
+		game_clear_move(game);
 		return GAME_WORD_USED;
 	}
 
@@ -482,6 +522,70 @@ StatusCode game_get_player_words(Game* game, int player_id, char*** words, int* 
 	return GAME_INVALID_ID;
 }
 
+StatusCode game_get_word(Game* game, char* word) {
+	if (game == NULL) return ERROR_NULL_POINTER;
+
+	Move* move = &game->current_move;
+
+	if (move->word_len < 1) {
+		clear_word_selection(move);
+		return GAME_WORD_EMPTY;
+	}
+	char buffer[MAX_WORD_LEN + 1];
+	WordCell_to_char(move->word, buffer, move->word_len);
+	strncpy(word, buffer, strlen(buffer) + 1);
+
+	return SUCCESS;
+}
+
+
+
+//--------------------------------------
+//---------------SETTINGS---------------
+//--------------------------------------
+
+GameSettings* game_init_settings() {
+	GameSettings* settings = malloc(sizeof(GameSettings));
+	if (settings == NULL) {
+		fprintf(stderr, "Ошибка при выделении памяти для GameSettings\n");
+		return NULL;
+	}
+	settings->difficulty = DEFAULT_DIFFICULTY;
+	settings->time_limit = DEFAULT_MAX_TIME;
+	settings->first_player = DEFAULT_FIRST_PLAYER;
+
+	return settings;
+}
+
+
+StatusCode game_set_max_time_waiting(GameSettings* settings, int time) {
+	if (settings == NULL) return ERROR_NULL_POINTER;
+
+	if (time < 1) return GAME_INVALID_TIME;
+	else settings->time_limit = time;
+	return SUCCESS;
+}
+
+StatusCode game_set_difficulty(GameSettings* settings, int difficulty) {
+	if (settings == NULL) return ERROR_NULL_POINTER;
+
+	if (difficulty < 0 || difficulty > 2) return GAME_INVALID_DIFFICULTY;
+	else settings->difficulty = difficulty;
+	return SUCCESS;
+}
+
+StatusCode game_set_first_player(GameSettings* settings, int first_player) {
+	if (settings == NULL) return ERROR_NULL_POINTER;
+
+	if (first_player < 1 || first_player > 2) return GAME_INVALID_FIRST_PLAYER;
+	else settings->first_player = first_player;
+	return SUCCESS;
+}
+
+
+//добавить поля с поставленными словами и соответствующие проверки
+//изменить то, как выбирается начальное слово (повторное чтение файла)
+
 
 void print_field(Game* game) {
 	for (int i = 0; i < FIELD_SIZE; i++) {
@@ -490,14 +594,15 @@ void print_field(Game* game) {
 			if (c == 0) {
 				printf("[ ]");
 			}
-			else{
+			else {
 				printf("[%c]", c);
-			}	
+			}
 		}
 		printf("\n");
 	}
 }
 
 
-//добавить поля с поставленными словами и соответствующие проверки
-//изменить то, как выбирается начальное слово (повторное чтение файла)
+void print_settings(GameSettings* settings) {
+	printf("time: %d\n difficulty: %d\n first_player: %d\n", settings->time_limit, settings->difficulty, settings->first_player);
+}

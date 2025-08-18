@@ -8,6 +8,8 @@
 #include "dict.h"
 #include "common.h"
 
+#define FILE_NAME "dictionary.txt"
+
 typedef struct TrieNode {
 	struct TrieNode* children[33];
 	bool is_end_of_the_word;
@@ -15,12 +17,7 @@ typedef struct TrieNode {
 
 struct Dictionary {
 	TrieNode* root;
-	int total_count;
-
-	//кандидаты на начальное слово
-	char** candidates;
-	int candidates_count;
-	int candidates_capacity;
+	int count;
 };
 
 
@@ -87,28 +84,24 @@ static bool is_word_in_trie(TrieNode* root, const char* word) {
 }
 
 
-Dictionary* dict_init(const char* filename) {
-	FILE* file = fopen(filename, "r+");
+Dictionary* dict_init() {
+	FILE* file = fopen(FILE_NAME, "r+");
 	if (file == NULL) {
-		fprintf(stderr, "Не удалось открыть файл %s\n", filename);
+		fprintf(stderr, "Не удалось открыть файл %s\n", FILE_NAME);
 		return NULL;
 	}
 
 	Dictionary* dict = malloc(sizeof(Dictionary));
 	if (dict == NULL) {
 		fprintf(stderr, "Ошибка выделения памяти для Dictionary\n");
+		fclose(file);
 		return NULL;
 	}
-	dict->total_count = 0;
-	dict->candidates_capacity = 100;
-	dict->candidates_count = 0;
+	dict->count = 0;
 	dict->root = create_node();
 	if (dict->root == NULL) {
-		return NULL;
-	}
-	dict->candidates = malloc(dict->candidates_capacity * sizeof(char*));
-	if (dict->candidates == NULL) {
-		fprintf(stderr, "Ошибка выделения памяти для dict.candidates\n");
+		free(dict);
+		fclose(file);
 		return NULL;
 	}
 
@@ -122,33 +115,11 @@ Dictionary* dict_init(const char* filename) {
 
 		if (is_word_valid(buffer)) {
 			insert_word_into_trie(dict->root, buffer);
-			dict->total_count++;
+			dict->count++;
 		}
 		else {
 			printf("Слово %s было пропущено при инициализации словаря, т.к. содержит недопустимые символы\n", buffer);
 			continue;
-		}
-
-		//если слово имеет длину 5, делаем ее кандидатом для стартового слова
-		if (len == 5) {
-			char* word = malloc(len * sizeof(char) + 1);
-			if (word == NULL) {
-				fprintf(stderr, "Ошибка при выделении памяти в dict_init() для word\n");
-				return NULL;
-			}
-			strncpy(word, buffer, len + 1);
-			dict->candidates[dict->candidates_count++] = word;
-
-			//расширяем массив при необходимости
-			if (dict->candidates_count == dict->candidates_capacity) {
-				char** new_candidates = realloc(dict->candidates, dict->candidates_capacity * 2 * sizeof(char*));
-				if (new_candidates == NULL) {
-					fprintf(stderr, "Ошибка при перераспределении памяти для new_candidates\n");
-					return NULL;
-				}
-				dict->candidates = new_candidates;
-				dict->candidates_capacity *= 2;
-			}
 		}
 	}
 	fclose(file);
@@ -158,7 +129,6 @@ Dictionary* dict_init(const char* filename) {
 
 void dict_destroy(Dictionary* dict) {
 	clear_trie(dict->root);
-	free(dict->candidates);
 	free(dict);
 }
 
@@ -176,7 +146,7 @@ StatusCode dict_add_word(Dictionary* dict, const char* word) {
 		return DICT_ERROR_INVALID_WORD;
 	}
 	insert_word_into_trie(dict->root, word);
-	dict->total_count++;
+	dict->count++;
 
 	//a - append
 	FILE* file = fopen("dictionary.txt", "a");
@@ -187,34 +157,39 @@ StatusCode dict_add_word(Dictionary* dict, const char* word) {
 	fprintf(file, "%s\n", word);
 	fclose(file);
 
-	//если len = 5, добавляем в кандидаты на стартовое слово
-	size_t len = strlen(word) - 1;
-	if (len == 5) {
-		dict->candidates[dict->candidates_count++] = word;
-
-		//расширяем массив при необходимости
-		if (dict->candidates_count == dict->candidates_capacity) {
-			char** new_candidates = realloc(dict->candidates, dict->candidates_capacity * 2 * sizeof(char*));
-			if (new_candidates == NULL) {
-				fprintf(stderr, "Ошибка при перераспределении памяти для new_candidates\n");
-				return ERROR_OUT_OF_MEMORY;
-			}
-			dict->candidates = new_candidates;
-			dict->candidates_capacity *= 2;
-		}
-	}
-
 	return SUCCESS;
 }
 
-
-char* dict_get_starting_word(Dictionary* dict) {
-	if (dict->candidates_count == 0) {
-		fprintf(stderr, "Нет кандидатов для выбора стартового слова!\n");
-		return NULL;
+//since this operation executes once when the game is started, there is no problem reading file again
+StatusCode dict_get_starting_word(Dictionary* dict, char st_word[]) {
+	FILE* file = fopen(FILE_NAME, "r");
+	if (file == NULL) {
+		fprintf(stderr, "Не удалось открыть файл %s для выбора начального слова\n", FILE_NAME);
+		return ERROR_FILE_NO_FOUND;
 	}
-	int i = rand() % dict->candidates_count;
-	return dict->candidates[i];
+
+	int count = 0;
+	char** candidates = malloc(sizeof(char*) * dict->count);
+	if (candidates == NULL) return ERROR_OUT_OF_MEMORY;
+
+	char buffer[255] = { 0 };
+	while (fgets(buffer, sizeof(buffer), file) != NULL) {
+		// only 5 letter words
+		if ((buffer[5] == '\n' || buffer[5] == '\0') && buffer[4] != '\n' && buffer[4] != '\0') {
+			buffer[5] = '\0';
+			candidates[count] = malloc(sizeof(char) * 6);
+			strncpy(candidates[count++], buffer, 6);
+		}	
+	}
+
+	strncpy(st_word, candidates[rand() % count], 6);
+
+	for (int i = 0; i < count; i++) {
+		free(candidates[i]);
+	}
+	free(candidates);
+
+	return SUCCESS;
 }
 
 //Функция принимает указатель, а не структуру, потому что при попытке передать неполную структуру (объявленную в dict.h) компилятор выдаст ошибку (т.е. при вызове dict_print() из других файлов)

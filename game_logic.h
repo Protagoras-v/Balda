@@ -14,8 +14,8 @@ typedef struct GameSettings GameSettings;
 
 typedef struct Game Game;
 
-//еще нужно добавить сюда аргумент настроек
-Game* game_create(Dictionary* dict);
+
+Game* game_create(GameSettings* settings, Dictionary* dict);
 
 void game_destroy(Game* game);
 
@@ -31,12 +31,34 @@ StatusCode game_clear_move(Game* game);
 
 void print_field(Game* game);
 
-//get
+
+//-------------------------------------------
+//--------------------get--------------------
+//-------------------------------------------
 StatusCode game_get_cell(GameField* field, int y, int x, unsigned char* res);
 
 int game_get_player_id(Game* game);
 
 StatusCode game_get_player_words(Game* game, int player_id, char*** words, int* count);
+
+//returns current word
+StatusCode game_get_word(Game* game, char* word);
+
+
+//------------------------------------------------
+//--------------------settings--------------------
+// -----------------------------------------------
+GameSettings* game_init_settings();
+
+StatusCode game_set_max_time_waiting(GameSettings* settings, int time);
+
+StatusCode game_set_difficulty(GameSettings* settings, int time);
+
+StatusCode game_set_first_player(GameSettings* settings, int time);
+
+void print_settings(GameSettings* settings);
+
+
 
 //также нужны функции, которые провер€ют, есть ли клетка в выделенном слове дл€ UI
 

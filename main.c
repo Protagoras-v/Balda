@@ -7,7 +7,7 @@
 #include "dict.h"
 #include "game_logic.h"
 
-
+#define MAX_WORD_LEN 100
 
 void check_code(StatusCode code) {
 	switch (code) {
@@ -62,7 +62,6 @@ void check_code(StatusCode code) {
 	case FIELD_WORD_ALREADY_EMPTY:
 		printf("Слово уже удалено\n");
 		break;
-		// Ошибки игровой логики
 	case GAME_INVALID_WORD:
 		printf("Недопустимое слово в игре\n");
 		break;
@@ -78,7 +77,6 @@ void check_code(StatusCode code) {
 	case GAME_INVALID_ID:
 		printf("Неверный идентификатор игрока\n");
 		break;
-		// Ошибки ИИ
 	case AI_ERROR_NO_MOVES_FOUND:
 		printf("ИИ не нашел доступных ходов\n");
 		break;
@@ -91,6 +89,10 @@ void check_code(StatusCode code) {
 	}
 }
 
+void clear_input_buffer() {
+	int c;
+	while ((c = getchar()) != '\n' && c != EOF);
+}
 
 
 int parse_command(Dictionary* dict, Game* game, char* cmd) {
@@ -115,15 +117,41 @@ int parse_command(Dictionary* dict, Game* game, char* cmd) {
 	if (strcmp(ptr, "confirm_move") == 0) {
 		if (!f) {
 			code = game_confirm_move(game, dict);
-			check_code(code);
+			if (code == GAME_INVALID_WORD) {
+				int r = -1;
+
+				char* word[MAX_WORD_LEN];
+				game_get_word(game, word);
+
+				while (r != 1 && r != 0) {
+					printf("Слово '%s' отсутствует в словаре, хотите добавить его ? 1 - да, 0 - нет\n", word);
+					scanf("%d", &r);
+
+					if (r == 1) {
+						dict_add_word(dict, word);
+						code = game_confirm_move(game, dict);
+						check_code(code);
+						clear_input_buffer();
+					}
+					else if (r == 0) {
+						game_cancel_word_selection(game);
+					}
+					else {
+						printf("Невалидный ввод\n");
+					}
+				}
+			}
+			else { 
+				check_code(code); 
+			}
 		}
 		else
 			printf("ошибка команды\n");
 	}
-	else if (strcmp(ptr, "place_letter") == 0) {
+	else if (strcmp(ptr, "letter") == 0) {
 		int y = 0, x = 0;
 		char letter = '\0';
-		char* e1, * e2, * e3;
+		char* e1, * e2;
 
 		ptr = s;
 		while (*s != ' ' && *s != '\0') s++;
@@ -164,7 +192,7 @@ int parse_command(Dictionary* dict, Game* game, char* cmd) {
 		check_code(code);
 		print_field(game);
 	}
-	else if (strcmp(ptr, "add_into_word") == 0) {
+	else if (strcmp(ptr, "add") == 0) {
 		int y = 0, x = 0;
 		char* e1, * e2, * e3;
 
@@ -196,7 +224,10 @@ int parse_command(Dictionary* dict, Game* game, char* cmd) {
 		}
 
 		code = game_add_cell_into_word(game, y, x);
-		check_code(code);
+		if (code == GAME_LETTER_IS_MISSING) {
+			printf("Сначала нужно разместить букву!\n");
+		}
+		else check_code(code);
 	}
 	else if (strcmp(ptr, "print") == 0) {
 		print_field(game);
@@ -206,6 +237,16 @@ int parse_command(Dictionary* dict, Game* game, char* cmd) {
 	}
 	else if (strcmp(ptr, "remove_letter") == 0) {
 		game_clear_move(game);
+	}
+	else if (strcmp(ptr, "print_word") == 0) {
+		char* buffer[MAX_WORD_LEN];
+		code = game_get_word(game, buffer);
+		if (code == GAME_WORD_EMPTY) {
+			printf("Вы еще не доавили ни одной буквы в слово!\n");
+		}
+		else if (code == SUCCESS) {
+			printf("Текущее составленное слово: %s\n", buffer);
+		}
 	}
 	else if (strcmp(ptr, "print_place_words") == 0) {
 		char* e1;
@@ -228,7 +269,7 @@ int parse_command(Dictionary* dict, Game* game, char* cmd) {
 		int count;
 		code = game_get_player_words(game, id, &words, &count);
 		if (code == GAME_INVALID_ID) {
-			printf("Неверный id");
+			printf("Неверный id\n");
 		}
 		else if (code == SUCCESS) {
 			printf("Слова, поставленные пользователем с id %d: ", id);
@@ -238,11 +279,28 @@ int parse_command(Dictionary* dict, Game* game, char* cmd) {
 			printf("\n");
 		}
 	}
+	else if (strcmp(ptr, "help") == 0) {
+		printf("Доступные команды:\n"
+			"  place_letter <y> <x> <буква>  - поставить букву на поле\n"
+			"  add_into_word <y> <x>         - добавить клетку в составляемое слово\n"
+			"  confirm_move                  - подтвердить ход\n"
+			"  cancel_selection              - отменить выбор слова\n"
+			"  remove_letter                 - убрать поставленную букву\n"
+			"  print                         - показать поле\n"
+			"  print_word                    - показать составляемое слово\n"
+			"  print_place_words <id>        - показать слова игрока (0-игрок, 1-ИИ)\n"
+			"  help                          - показать эту справку\n"
+			"  quit                          - выход из игры\n");
+	}
+	else if (strcmp(ptr, "quit") == 0) {
+		return 0;
+	}
 	else {
 		printf("ошибка команды\n");
 	}
 	return 1;
 }
+
 
 int main() {
 	SetConsoleCP(1251);
@@ -252,8 +310,26 @@ int main() {
 	//зерно для генерации случайных чисел
 	srand(time(NULL));
 
+	StatusCode code;
+
+	GameSettings* settings = game_init_settings();
+	if (settings == NULL) {
+		return 1;
+	}
 	Dictionary* dict = dict_init("dictionary.txt");
-	Game* game = game_create(dict);
+	if (dict == NULL) {
+		return 1;
+	}
+	Game* game = game_create(settings, dict);
+	if (game == NULL) {
+		return 1;
+	}
+
+	//game_set_max_time_waiting(settings, 100);
+	//game_set_difficulty(settings, 2);
+	//game_set_first_player(settings, 2);
+	//
+	//print_settings(settings);
 
 	bool f = 1;
 	while (f) {
@@ -267,5 +343,8 @@ int main() {
 		f = parse_command(dict, game, cmd);
 	}
 
+	dict_destroy(dict);
+	game_destroy(game);
+	free(settings);
 	return 0;
 }
