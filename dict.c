@@ -152,7 +152,7 @@ StatusCode dict_add_word(Dictionary* dict, const char* word) {
 	FILE* file = fopen("dictionary.txt", "a");
 	if (file == NULL) {
 		fprintf(stderr, "Не удалось открыть файл dictionary.txt\n");
-		return ERROR_FILE_NO_FOUND;
+		return ERROR_FILE_NOT__FOUND;
 	}
 	fprintf(file, "%s\n", word);
 	fclose(file);
@@ -165,7 +165,7 @@ StatusCode dict_get_starting_word(Dictionary* dict, char st_word[]) {
 	FILE* file = fopen(FILE_NAME, "r");
 	if (file == NULL) {
 		fprintf(stderr, "Не удалось открыть файл %s для выбора начального слова\n", FILE_NAME);
-		return ERROR_FILE_NO_FOUND;
+		return ERROR_FILE_NOT__FOUND;
 	}
 
 	int count = 0;

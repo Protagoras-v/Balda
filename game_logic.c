@@ -27,7 +27,8 @@ typedef struct PlayerWords {
 } PlayerWords;
 
 typedef struct WordCell {
-	int y, x;
+	int y : 5;
+	int x : 5;
 	char letter;
 } WordCell;
 
@@ -39,12 +40,13 @@ struct Cell {
 
 struct GameField {
 	Cell** grid;
-	int width, height;
-	int center_x, center_y;
+	int width;
+	int height;
 };
 
 struct Move {
-	int y, x; //координаты вставляемой буквы
+	int y : 5;
+	int x : 5;
 	char letter;
 	WordCell word[MAX_WORD_LEN];
 	int word_len;
@@ -116,8 +118,6 @@ static GameField* field_create(Dictionary* dict) {
 
 	field->height = FIELD_SIZE;
 	field->width = FIELD_SIZE;
-	field->center_y = FIELD_SIZE / 2;
-	field->center_x = FIELD_SIZE / 2;
 
 	return field;
 }
@@ -583,8 +583,203 @@ StatusCode game_set_first_player(GameSettings* settings, int first_player) {
 }
 
 
-//добавить поля с поставленными словами и соответствующие проверки
-//изменить то, как выбирается начальное слово (повторное чтение файла)
+
+//----------------------------------------
+//---------------SAVE FILES---------------
+//----------------------------------------
+
+// 
+// 'BALD' - 4 bytes (magic)
+
+// GAME STATE  
+// [UNSIGNED CHAR current_player] - 1 byte (0 или 1)
+// [UNSIGNED SHORT score_player] - 2 bytes  
+// [UNSIGNED SHORT score_computer] - 2 bytes
+
+// SETTINGS
+// [UNSIGNED SHORT time_limit] - 2 bytes (SEC)
+// [UNSIGNED CHAR difficulty] - 1 byte (0-2)
+// [UNSIGNED CHAR first_player] - 1 byte
+
+// FIELD
+// [UNSIGNED CHAR width] - 1 byte (max 255)
+// [UNSIGNED CHAR height] - 1 byte
+// ([CHAR letter] [CHAR is_new]) * width * height - только буквы, 0 если пусто
+
+// MOVE WILL NOT BE SAVED BECAUSE ITS NOT NECESSERY (there is no problem to place letter and select word again)
+
+// WORDS HISTORY
+// [UNSIGNED SHORT player_words_count] - 2 bytes
+// For every player1`s word:
+//   [UNSIGNED CHAR len] - 1 byte
+//   [CHAR * len] - только нужные байты
+// [UNSIGNED SHORT computer_words_count] - 2 bytes  
+// For every player2`s (computer) word:
+//   [UNSIGNED CHAR len] - 1 byte
+//   [CHAR * len] - только нужные байты
+
+
+StatusCode game_save(Game* game, const char* filename) {
+	FILE* file = fopen(filename, "wb+");
+	if (file == NULL) {
+		return ERROR_FILE_NOT__FOUND;
+	}
+
+	unsigned char c;
+	unsigned short sh;
+
+	//magic
+	unsigned char MAGIC[4] = "BALD";
+	fwrite(MAGIC, sizeof(MAGIC), 1, file);
+
+	// GAME STATE 
+	c = game->current_player;
+	fwrite(&c, 1, 1, file);
+	sh = game->scores[0];
+	fwrite(&sh, 2, 1, file);
+	sh = game->scores[1];
+	fwrite(&sh, 2, 1, file);
+
+	// SETTINGS
+	sh = game->settings->time_limit;
+	fwrite(&sh, 2, 1, file);
+	c = game->settings->difficulty;
+	fwrite(&c, 1, 1, file);
+	c = game->settings->first_player;
+	fwrite(&c, 1, 1, file);
+
+	// FIELD
+	c = game->field->height;
+	fwrite(&c, 1, 1, file);
+	c = game->field->width;
+	fwrite(&c, 1, 1, file);
+	// cells
+	for (int i = 0; i < game->field->height; i++) {
+		for (int j = 0; j < game->field->width; j++) {
+			c = game->field->grid[i][j].letter;
+			fwrite(&c, 1, 1, file);
+			c = game->field->grid[i][j].player_id;;
+			fwrite(&c, 1, 1, file);
+			c = game->field->grid[i][j].new;;
+			fwrite(&c, 1, 1, file);
+		}
+	}
+	
+	// WORDS HISTORY
+	sh = game->player1_words.count;
+	fwrite(&sh, 2, 1, file);
+	for (int i = 0; i < game->player1_words.count; i ++) {
+		//word len + 1 '\0' byte
+		unsigned char len = strlen(game->player1_words.words[i]) + 1;
+		fwrite(&len, sizeof(len), 1, file);
+		//word
+		fwrite(game->player1_words.words[i], 1, len, file);
+	}
+
+	sh = game->player2_words.count;
+	fwrite(&sh, 2, 1, file);
+	for (int i = 0; i < game->player2_words.count; i++) {
+		//word len + 1 '\0' byte
+		unsigned char len = strlen(game->player2_words.words[i]) + 1;
+		fwrite(&len, sizeof(len), 1, file);
+		//word
+		fwrite(game->player2_words.words[i], 1, len, file);
+	}
+
+	fclose(file);
+	return SUCCESS;
+}
+
+StatusCode game_load(Game* game, const char* filename) {
+	FILE* file = fopen(filename, "rb");
+	if (file == NULL) {
+		return ERROR_FILE_NOT__FOUND;
+	}
+
+	unsigned char c = 0;
+	unsigned short sh = 0;
+
+	//MAGIC
+	unsigned char MAGIC[4];
+	fread(MAGIC, sizeof(MAGIC), 1, file);
+	if (!(MAGIC[0] == 'B' && MAGIC[1] == 'A' && MAGIC[2] == 'L' && MAGIC[3] == 'D')) {
+		fclose(file);
+		return ERROR_INVALID_FILE_FORMAT;
+	}
+
+	// GAME STATE 
+	fread(&c, 1, 1, file);
+	game->current_player = c;
+	fread(&sh, 2, 1, file);
+	game->scores[0] = sh;
+	fread(&sh, 2, 1, file);
+	game->scores[1] = sh;
+
+	// SETTINGS
+	fread(&sh, 2, 1, file);
+	game->settings->time_limit = sh;
+	fread(&c, 1, 1, file);
+	game->settings->difficulty = c;
+	fread(&c, 1, 1, file);
+	game->settings->first_player = c;
+
+	// FIELD
+	fread(&c, 1, 1, file);
+	game->field->height = c;
+	fread(&c, 1, 1, file);
+	game->field->width = c;
+	// cells
+	for (int i = 0; i < game->field->height; i++) {
+		for (int j = 0; j < game->field->width; j++) {
+			fread(&c, 1, 1, file);
+			game->field->grid[i][j].letter = c;
+			fread(&c, 1, 1, file);
+			game->field->grid[i][j].player_id = c;
+			fread(&c, 1, 1, file);
+			game->field->grid[i][j].new = c;
+		}
+	}
+
+	// WORDS HISTORY
+	fread(&sh, 2, 1, file);
+	game->player1_words.count = sh;
+	for (int i = 0; i < game->player1_words.count; i++) {
+		unsigned char len; // word len + '\0'
+		fread(&len, 1, 1, file);
+
+		game->player1_words.words[i] = malloc(len);
+		if (game->player1_words.words[i] == NULL) {
+			//free all words which have been allocated
+			while (i >= 0) {
+				free(game->player1_words.words[i--]);
+			}
+			fclose(file);
+			return ERROR_OUT_OF_MEMORY;
+		}
+		fread(game->player1_words.words[i], 1, len, file);
+	}
+
+	fread(&sh, 2, 1, file);
+	game->player2_words.count = sh;
+	for (int i = 0; i < game->player2_words.count; i++) {
+		unsigned char len; // word len + '\0'
+		fread(&len, 1, 1, file);
+
+		game->player2_words.words[i] = malloc(len);
+		if (game->player2_words.words[i] == NULL) {
+			//free all words which have been allocated
+			while (i >= 0) {
+				free(game->player2_words.words[i--]);
+			}
+			fclose(file);
+			return ERROR_OUT_OF_MEMORY;
+		}
+		fread(game->player2_words.words[i], 1, len, file);
+	}
+
+	fclose(file);
+	return SUCCESS;
+}
 
 
 void print_field(Game* game) {

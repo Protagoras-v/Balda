@@ -35,7 +35,7 @@ void print_field(Game* game);
 //-------------------------------------------
 //--------------------get--------------------
 //-------------------------------------------
-StatusCode game_get_cell(GameField* field, int y, int x, unsigned char* res);
+StatusCode game_get_cell(Game* game, int x, int y, unsigned char* res);
 
 int game_get_player_id(Game* game);
 

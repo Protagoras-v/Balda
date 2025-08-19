@@ -6,6 +6,7 @@
 
 #include "dict.h"
 #include "game_logic.h"
+#include "status_codes.h"
 
 #define MAX_WORD_LEN 100
 
@@ -24,7 +25,7 @@ void check_code(StatusCode code) {
 	case ERROR_OUT_OF_MEMORY:
 		printf("Недостаточно памяти\n");
 		break;
-	case ERROR_FILE_NO_FOUND:
+	case ERROR_FILE_NOT__FOUND:
 		printf("Файл не найден\n");
 		break;
 		// Ошибки словаря
@@ -310,6 +311,7 @@ int main() {
 	//зерно для генерации случайных чисел
 	srand(time(NULL));
 
+	printf("%d\n", sizeof(short));
 	StatusCode code;
 
 	GameSettings* settings = game_init_settings();
