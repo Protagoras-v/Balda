@@ -128,6 +128,7 @@ Dictionary* dict_init() {
 
 
 void dict_destroy(Dictionary* dict) {
+	if (dict == NULL) return;
 	clear_trie(dict->root);
 	free(dict);
 }

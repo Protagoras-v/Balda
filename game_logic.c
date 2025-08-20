@@ -136,6 +136,7 @@ static GameField* field_create(Dictionary* dict) {
 }
 
 static void field_destroy(GameField* field) {
+	if (field == NULL) return;
 	for (int i = 0; i < field->height; i++) {
 		free(field->grid[i]);
 	}
@@ -289,6 +290,47 @@ static StatusCode add_player_word(PlayerWords* p, char* word) {
 }
 
 
+int part_quick_sort(User* arr, int l, int r) {
+	int pivot = arr[(l + r) / 2].score;
+	while (l <= r) {
+		while (arr[l].score < pivot) l++;
+		while (arr[r].score > pivot) r--;
+		int temp = arr[l].score;
+		arr[l].score = arr[r].score;
+		arr[r].score = temp;
+		l++;
+		r--;
+	}
+
+	return l;
+}
+
+static void quick_sort(User* arr, int l, int r) {
+	if (l >= r) return;
+	int rStart = part_quick_sort(arr, l, r);
+	quick_sort(arr, l, rStart - 1);
+	quick_sort(arr, rStart, r);
+}
+
+static void leaderboard_sort(Leaderboard* lb) {
+	User* users = lb->users;
+	int c = lb->count;
+
+	if (c > 2) {
+		quick_sort(users, 0, c - 1);
+	}
+}
+
+static void leaderboard_add_new(Leaderboard* lb, const char* user, int score) {
+	if (lb->count == LEADERBOARD_SIZE) {
+		//rewrite 50th place
+		memcpy(lb->users[lb->count - 1].username, user, strlen(user) + 1);
+	}
+	else {
+		memcpy(lb->users[lb->count++].username, user, strlen(user) + 1);
+	}
+	lb->users[lb->count - 1].score = score;
+}
 
 
 
@@ -352,6 +394,7 @@ Game* game_create(GameSettings* settings, Dictionary* dict) {
 }
 
 void game_destroy(Game* game) {
+	if (game == NULL) return;
 	field_destroy(game->field);
 	game->settings = NULL;
 
@@ -501,7 +544,7 @@ StatusCode game_confirm_move(Game* game, Dictionary* dict) {
 
 
 Leaderboard* game_leaderboard_init() {
-	FILE* file = fopen("leaderboard.txt", "w+");
+	FILE* file = fopen("leaderboard.txt", "r+");
 	if (file == NULL) return NULL;
 
 	Leaderboard* lb = malloc(sizeof(Leaderboard));
@@ -522,7 +565,7 @@ Leaderboard* game_leaderboard_init() {
 
 		for (int i = 0; buffer[i]; i++) {
 			if (buffer[i] == ' ' && !f) {
-				buffer[i] == '\0';
+				buffer[i] = '\0';
 
 				t = &buffer[i + 1];
 
@@ -544,13 +587,13 @@ Leaderboard* game_leaderboard_init() {
 		else {
 			char* e;
 			int score = (int)strtol(t, &e, 10);
-			//if there is any non-digit symbols before score, the line will be considered invalid
-			if (*e != ' ' && e != '\0') {
+			//if there is any non-digit symbols after score, the line will be considered invalid
+			if (*e != ' ' && *e != '\0') {
 				continue;
 			}
 
-			int usermname_len = strlen(buffer);
-			lb->users[lb->count].username = malloc(usermname_len + 1); //the buffer pointer contains only the first part (username), because gap was replaced by '\0'
+			int username_len = strlen(buffer);
+			lb->users[lb->count].username = malloc(username_len + 1); //the buffer pointer contains only the first part (username), because gap was replaced by '\0'
 			if (lb->users[lb->count].username == NULL) {
 				fclose(file);
 				free(lb);
@@ -558,31 +601,42 @@ Leaderboard* game_leaderboard_init() {
 				return NULL;
 			}
 
-			memcpy(lb->users[lb->count].username, buffer, usermname_len + 1);
+			memcpy(lb->users[lb->count].username, buffer, username_len + 1);
 			lb->users[lb->count].score = score;
 			lb->count++;
 		}
 	}
 
 	fclose(file);
+
+	return lb;
 }
 
 void game_leaderboard_destroy(Leaderboard* lb) {
+	if (lb == NULL) return;
 	for (int i = 0; i < lb->count; i++) {
 		free(lb->users[i].username);
 	}
 	free(lb);
 }
 
-StatusCode game_push_to_leaderboard(Game* game, const char* username) {
-	FILE* file = fopen("leaderboard.txt", "w+");
+
+StatusCode game_add_to_leaderboard(Leaderboard* lb, Game* game, const char* username) {
+	if (game == NULL) return ERROR_NULL_POINTER;
+	if (lb == NULL) return ERROR_NULL_POINTER;
+
+	leaderboard_add_new(lb, username, game->scores[0]);
+	leaderboard_sort(lb);
+
+	//rewrite entire file with a sorted leaderboard
+	FILE* file = fopen("leaderboard.txt", "w");
 	if (file == NULL) return ERROR_FILE_NOT__FOUND;
-
+	for (int i = 0; i < lb->count; i++) {
+		fprintf(file, "%s %d\n", lb->users[i].username, lb->users[i].score);
+	}
+	fclose(file);
 }
 
-StatusCode game_add_to_leaderboard() {
-
-}
 
 //---------------------------------
 //---------------GET---------------
