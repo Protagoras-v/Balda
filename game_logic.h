@@ -4,10 +4,7 @@
 
 #include "dict.h"
 
-typedef struct Cell Cell;
-
-typedef struct GameField GameField;
-
+typedef struct Leaderboard Leaderboard;
 typedef struct Move Move;
 
 typedef struct GameSettings GameSettings;
@@ -18,6 +15,10 @@ typedef struct Game Game;
 Game* game_create(GameSettings* settings, Dictionary* dict);
 
 void game_destroy(Game* game);
+
+StatusCode game_load(Game* game, const char* filename);
+
+StatusCode game_save(Game* game, const char* filename);
 
 StatusCode game_try_place_letter(Game* game, int y, int x, char letter);
 
@@ -31,16 +32,23 @@ StatusCode game_clear_move(Game* game);
 
 void print_field(Game* game);
 
+Leaderboard* game_leaderboard_init();
+
+void game_leaderboard_destroy(Leaderboard* lb);
+
 
 //-------------------------------------------
 //--------------------get--------------------
 //-------------------------------------------
 StatusCode game_get_cell(Game* game, int x, int y, unsigned char* res);
 
-int game_get_player_id(Game* game);
+int game_get_player_id(Game* game, int* id);
+
+StatusCode game_get_score(Game* game, int id, int* score);
 
 StatusCode game_get_player_words(Game* game, int player_id, char*** words, int* count);
 
+StatusCode game_get_winner(Game* game, int* winner_id);
 //returns current word
 StatusCode game_get_word(Game* game, char* word);
 

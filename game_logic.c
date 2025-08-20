@@ -19,6 +19,13 @@
 #define DEFAULT_MAX_TIME 10
 #define DEFAULT_FIRST_PLAYER 1
 
+#define LEADERBOARD_SIZE 50
+
+
+typedef struct User {
+	char* username;
+	int score;
+} User;
 
 typedef struct PlayerWords {
 	char** words;
@@ -32,16 +39,22 @@ typedef struct WordCell {
 	char letter;
 } WordCell;
 
-struct Cell {
+typedef struct Cell {
 	char letter;
 	unsigned int player_id : 2; // 0 - клетка пустая, 1 - игрок, 2 - компьютер
 	unsigned int new : 1;
-};
+} Cell;
 
-struct GameField {
+typedef struct GameField {
 	Cell** grid;
 	int width;
 	int height;
+} GameField;
+
+
+struct Leaderboard {
+	int count;
+	User users[LEADERBOARD_SIZE];
 };
 
 struct Move {
@@ -136,11 +149,11 @@ static void field_set_letter(GameField* field, int y, int x, unsigned char lette
 	field->grid[y][x].new = 1;
 }
 
-static void confirm_letter(GameField* field, int y, int x) {
+static void field_confirm_letter(GameField* field, int y, int x) {
 	field->grid[y][x].new = 0;
 }
 
-static void remove_letter(GameField* field, int y, int x) {
+static void field_remove_letter(GameField* field, int y, int x) {
 	field->grid[y][x].letter = '\0';
 	field->grid[y][x].player_id = 0;
 	field->grid[y][x].new = 0;
@@ -162,7 +175,7 @@ static bool is_cell_coordinates_valid(GameField* field, int y, int x) {
 }
 
 
-//Проверяет, есть ли рядом клетки с буквами
+//Each new letter must be connected to others
 static bool is_letter_near(GameField* field, int y, int x) {
 	//слева 
 	if (x - 1 >= 0 && !is_cell_empty(field, y, x - 1)) {
@@ -183,7 +196,7 @@ static bool is_letter_near(GameField* field, int y, int x) {
 	return 0;
 }
 
-//Проверяет, граничит ли новая Cell с последней вставленной в current_move.word 
+//Is the selected cell connected to the previous one in current_move.word 
 static bool is_cell_next_to_previous(int y, int x, int prev_y, int prev_x) {
 	//если клетка выше или ниже 
 	if (x == prev_x) {
@@ -253,6 +266,7 @@ static StatusCode clear_word_selection(Move* move) {
 	return SUCCESS;
 }
 
+//add word to the list of player`s words
 static StatusCode add_player_word(PlayerWords* p, char* word) {
 	int size = strlen(word) + 1;
 	p->words[p->count] = malloc(sizeof(char) * size);
@@ -423,7 +437,7 @@ StatusCode game_clear_move(Game* game) {
 
 	Move* move = &game->current_move;
 	clear_word_selection(move);
-	remove_letter(game->field, move->y, move->x);
+	field_remove_letter(game->field, move->y, move->x);
 	move->letter = '\0';
 	move->y = -1;
 	move->x = -1;
@@ -457,7 +471,7 @@ StatusCode game_confirm_move(Game* game, Dictionary* dict) {
 	if (dict_word_exists(dict, buffer)) {
 		//apply changes
 		game->scores[game->current_player - 1] = move->score;
-		confirm_letter(game->field, move->y, move->x);
+		field_confirm_letter(game->field, move->y, move->x);
 
 		clear_word_selection(move);
 		move->letter = '\0';
@@ -486,6 +500,89 @@ StatusCode game_confirm_move(Game* game, Dictionary* dict) {
 }
 
 
+Leaderboard* game_leaderboard_init() {
+	FILE* file = fopen("leaderboard.txt", "w+");
+	if (file == NULL) return NULL;
+
+	Leaderboard* lb = malloc(sizeof(Leaderboard));
+	if (lb == NULL) {
+		fclose(file);
+		fprintf(stderr, "Ошибка при выделении памяти для leaderboard\n");
+		return NULL;
+	}
+	lb->count = 0;
+
+	char buffer[255];
+	while (fgets(buffer, sizeof(buffer), file) != NULL && lb->count < LEADERBOARD_SIZE) {
+		bool f = 0;
+		char* t;
+		t = strchr(buffer, '\n');
+		if (t != NULL) *t = '\0';
+		buffer[244] = '\0';
+
+		for (int i = 0; buffer[i]; i++) {
+			if (buffer[i] == ' ' && !f) {
+				buffer[i] == '\0';
+
+				t = &buffer[i + 1];
+
+				//space skip
+				while (*t == ' ') t++;
+
+				//situation wherer a spaces is followed by '\0', so there isn`t score part and this strings is invalid
+				if (*t == '\0') {
+					f = 0;
+				}
+				break;
+			}
+		}
+
+		//Skip an invalid line
+		if (!f) {
+			continue;
+		}
+		else {
+			char* e;
+			int score = (int)strtol(t, &e, 10);
+			//if there is any non-digit symbols before score, the line will be considered invalid
+			if (*e != ' ' && e != '\0') {
+				continue;
+			}
+
+			int usermname_len = strlen(buffer);
+			lb->users[lb->count].username = malloc(usermname_len + 1); //the buffer pointer contains only the first part (username), because gap was replaced by '\0'
+			if (lb->users[lb->count].username == NULL) {
+				fclose(file);
+				free(lb);
+				fprintf(stderr, "Ошибка при выделении памяти в game_leaderboard_init()\n");
+				return NULL;
+			}
+
+			memcpy(lb->users[lb->count].username, buffer, usermname_len + 1);
+			lb->users[lb->count].score = score;
+			lb->count++;
+		}
+	}
+
+	fclose(file);
+}
+
+void game_leaderboard_destroy(Leaderboard* lb) {
+	for (int i = 0; i < lb->count; i++) {
+		free(lb->users[i].username);
+	}
+	free(lb);
+}
+
+StatusCode game_push_to_leaderboard(Game* game, const char* username) {
+	FILE* file = fopen("leaderboard.txt", "w+");
+	if (file == NULL) return ERROR_FILE_NOT__FOUND;
+
+}
+
+StatusCode game_add_to_leaderboard() {
+
+}
 
 //---------------------------------
 //---------------GET---------------
@@ -499,11 +596,18 @@ StatusCode game_get_cell(Game* game, int x, int y, unsigned char* res) {
 	return game->field->grid[y][x].letter;
 }
 
-int game_get_player_id(Game* game) {
-	if (game == NULL) return 0;
-	return game->current_player;
+StatusCode game_get_player_id(Game* game, int* id) {
+	if (game == NULL) return ERROR_NULL_POINTER;
+	*id = game->current_player;
+	return SUCCESS;
 }
 
+StatusCode game_get_score(Game* game, int id, int* score) {
+	if (game == NULL) return ERROR_NULL_POINTER;
+	if (id < 1 || id > 2) return GAME_INVALID_ID;
+	*score = game->scores[id - 1];
+	return SUCCESS;
+}
 
 StatusCode game_get_player_words(Game* game, int player_id, char*** words, int* count) {
 	if (game == NULL) return ERROR_NULL_POINTER;
@@ -538,6 +642,13 @@ StatusCode game_get_word(Game* game, char* word) {
 	return SUCCESS;
 }
 
+StatusCode game_get_winner(Game* game, int* winner_id) {
+	if (game == NULL) return ERROR_NULL_POINTER;
+	if (game->scores[0] > game->scores[1]) *winner_id = 1;
+	if (game->scores[0] < game->scores[1])  *winner_id = 2;
+	if (game->scores[0] == game->scores[1])  *winner_id = 0; //draw
+	return SUCCESS;
+}
 
 
 //--------------------------------------
@@ -689,6 +800,7 @@ StatusCode game_save(Game* game, const char* filename) {
 	fclose(file);
 	return SUCCESS;
 }
+
 
 StatusCode game_load(Game* game, const char* filename) {
 	FILE* file = fopen(filename, "rb");

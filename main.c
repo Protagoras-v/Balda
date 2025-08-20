@@ -96,7 +96,7 @@ void clear_input_buffer() {
 }
 
 
-int parse_command(Dictionary* dict, Game* game, char* cmd) {
+int parse_command(Dictionary* dict, GameSettings* settings, Game** game, char* cmd) {
 	char* ptr = cmd;
 	char* s = cmd;
 	bool f = 0;
@@ -114,28 +114,101 @@ int parse_command(Dictionary* dict, Game* game, char* cmd) {
 	if (*s == ' ')
 		f = 1;
 	*s++ = '\0';
+	if (strcmp(ptr, "new_game") == 0) {
+		if (*game != NULL) {
+			*game = game_create(settings, dict);
+			if (*game == NULL) {
+				fprintf(stderr, "Ошибка при выделении памяти для *game\n");
+				return 0;
+			}
+		}
+		else {
+			printf("Игра уже запущена\n");
+		}
+	}
+	else if (strcmp(ptr, "load_game") == 0) {
+		if (*game != NULL) {
+			printf("Игра уже запущена!\n");
+		}
+		else {
+			*game = game_create(settings, dict);
+			if (*game == NULL) {
+				fprintf(stderr, "Ошибка при выделении памяти для *game\n");
+				return 0;
+			}
+			char filename[100];
 
-	if (strcmp(ptr, "confirm_move") == 0) {
+			printf("Введите имя файла:\n");
+			scanf("%s", filename);
+
+			char* n = strchr(filename, '\n');
+			if (n != NULL) *n = '\0';
+
+			clear_input_buffer();
+
+			code = game_load(*game, filename);
+			if (code == ERROR_FILE_NOT__FOUND) {
+				printf("Такого файла нет!\n");
+			}
+			else check_code(code);
+		}
+	}
+	else if (strcmp(ptr, "save_game") == 0) {
+		if (*game == NULL) {
+			char filename[100];
+			printf("Введите имя файла:\n");
+			scanf("%s", filename);
+
+			char* n = strchr(filename, '\n');
+			if (n != NULL) *n = '\0';
+
+			clear_input_buffer();
+			game_save(*game, filename);
+		}
+		else {
+			printf("Нельзя сохранить то, что еще не создано\n");
+		}
+	}
+	else if (strcmp(ptr, "end_game") == 0) {
+		//only player_1 can end game (because 2 is an AI)
+		int id = 0;
+		game_get_player_id(*game, &id);
+
+		if (id == 1) {
+			int id = 0;
+			game_get_winner(game, &id);
+
+			//ask player`s name for leaderbord
+			if (id == 1) {
+				printf("Введите свое имя\n");
+				scanf("%s");
+				clear_input_buffer();
+			}
+		}
+		else {
+			printf("Закончить игру может только player_1 (человек)\n");
+		}
+	}
+	else if (strcmp(ptr, "confirm_move") == 0) {
 		if (!f) {
-			code = game_confirm_move(game, dict);
+			code = game_confirm_move(*game, dict);
 			if (code == GAME_INVALID_WORD) {
 				int r = -1;
 
 				char* word[MAX_WORD_LEN];
-				game_get_word(game, word);
+				game_get_word(*game, word);
 
 				while (r != 1 && r != 0) {
 					printf("Слово '%s' отсутствует в словаре, хотите добавить его ? 1 - да, 0 - нет\n", word);
 					scanf("%d", &r);
-
 					if (r == 1) {
 						dict_add_word(dict, word);
-						code = game_confirm_move(game, dict);
+						code = game_confirm_move(*game, dict);
 						check_code(code);
 						clear_input_buffer();
 					}
 					else if (r == 0) {
-						game_cancel_word_selection(game);
+						game_cancel_word_selection(*game);
 					}
 					else {
 						printf("Невалидный ввод\n");
@@ -189,9 +262,9 @@ int parse_command(Dictionary* dict, Game* game, char* cmd) {
 
 		letter = *(s - 1);
 		
-		code = game_try_place_letter(game, y, x, letter);
+		code = game_try_place_letter(*game, y, x, letter);
 		check_code(code);
-		print_field(game);
+		print_field(*game);
 	}
 	else if (strcmp(ptr, "add") == 0) {
 		int y = 0, x = 0;
@@ -224,24 +297,24 @@ int parse_command(Dictionary* dict, Game* game, char* cmd) {
 			return 1;
 		}
 
-		code = game_add_cell_into_word(game, y, x);
+		code = game_add_cell_into_word(*game, y, x);
 		if (code == GAME_LETTER_IS_MISSING) {
 			printf("Сначала нужно разместить букву!\n");
 		}
 		else check_code(code);
 	}
 	else if (strcmp(ptr, "print") == 0) {
-		print_field(game);
+		print_field(*game);
 	}
 	else if (strcmp(ptr, "cancel_selection") == 0) {
-		game_cancel_word_selection(game);
+		game_cancel_word_selection(*game);
 	}
 	else if (strcmp(ptr, "remove_letter") == 0) {
-		game_clear_move(game);
+		game_clear_move(*game);
 	}
 	else if (strcmp(ptr, "print_word") == 0) {
 		char* buffer[MAX_WORD_LEN];
-		code = game_get_word(game, buffer);
+		code = game_get_word(*game, buffer);
 		if (code == GAME_WORD_EMPTY) {
 			printf("Вы еще не доавили ни одной буквы в слово!\n");
 		}
@@ -268,7 +341,7 @@ int parse_command(Dictionary* dict, Game* game, char* cmd) {
 
 		char** words;
 		int count;
-		code = game_get_player_words(game, id, &words, &count);
+		code = game_get_player_words(*game, id, &words, &count);
 		if (code == GAME_INVALID_ID) {
 			printf("Неверный id\n");
 		}
@@ -314,16 +387,14 @@ int main() {
 	printf("%d\n", sizeof(short));
 	StatusCode code;
 
+	Game* game = NULL;
+
 	GameSettings* settings = game_init_settings();
 	if (settings == NULL) {
 		return 1;
 	}
 	Dictionary* dict = dict_init("dictionary.txt");
 	if (dict == NULL) {
-		return 1;
-	}
-	Game* game = game_create(settings, dict);
-	if (game == NULL) {
 		return 1;
 	}
 
@@ -342,7 +413,7 @@ int main() {
 		n = strchr(cmd, '\n');
 		if (n != NULL) *n = '\0';
 
-		f = parse_command(dict, game, cmd);
+		f = parse_command(dict, settings, &game, cmd);
 	}
 
 	dict_destroy(dict);
