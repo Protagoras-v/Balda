@@ -22,7 +22,7 @@ bool is_word_valid(const unsigned char* word) {
 }
 
 //cp1251
-unsigned char tolower(unsigned char c) {
+unsigned char to_lower(unsigned char c) {
 	if (c >= 192 && c <= 223) {  //À-ß
 		return c + 32;
 	}

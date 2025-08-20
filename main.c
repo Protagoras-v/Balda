@@ -7,8 +7,13 @@
 #include "dict.h"
 #include "game_logic.h"
 #include "status_codes.h"
+#include "common.h"
 
+
+#define LEADERBOARD_SIZE 50
 #define MAX_WORD_LEN 100
+#define MIN_WORD_LEN 3
+
 
 void check_code(StatusCode code) {
 	switch (code) {
@@ -96,7 +101,7 @@ void clear_input_buffer() {
 }
 
 
-int parse_command(Dictionary* dict, GameSettings* settings, Game** game, char* cmd) {
+int parse_command(Dictionary* dict, GameSettings* settings, Game** game, Leaderboard* lb, char* cmd) {
 	char* ptr = cmd;
 	char* s = cmd;
 	bool f = 0;
@@ -114,7 +119,32 @@ int parse_command(Dictionary* dict, GameSettings* settings, Game** game, char* c
 	if (*s == ' ')
 		f = 1;
 	*s++ = '\0';
-	if (strcmp(ptr, "new_game") == 0) {
+	if (strcmp(ptr, "print_leaderboard") == 0) {
+		int scores[LEADERBOARD_SIZE];
+		char usernames[LEADERBOARD_SIZE];
+		int size = 0;
+		game_get_leaderboard(lb, usernames, scores, &size);
+
+		for (int i = 0; i < size; i++) {
+			printf("%s %d\n", usernames[i], scores[i]);
+		}
+	}
+	else if (strcmp(ptr, "add_into_lb") == 0) {
+		char name[MAX_WORD_LEN];
+		int score;
+
+		printf("¬ведите им€:\n");
+		scanf("%s", &name);
+		printf("¬ведите счет:\n");
+		scanf("%s", &score);
+		clear_input_buffer();
+		char* n = strchr(name, '\n');
+		if (n != NULL) *n = '\0';
+
+		code = game_add_into_leaderboard(lb, name, score);
+		check_code(code);
+	}
+	else if (strcmp(ptr, "new_game") == 0) {
 		if (*game != NULL) {
 			*game = game_create(settings, dict);
 			if (*game == NULL) {
@@ -384,7 +414,6 @@ int main() {
 	//зерно дл€ генерации случайных чисел
 	srand(time(NULL));
 
-	printf("%d\n", sizeof(short));
 	StatusCode code;
 
 	Game* game = NULL;
@@ -395,6 +424,11 @@ int main() {
 	}
 	Dictionary* dict = dict_init("dictionary.txt");
 	if (dict == NULL) {
+		return 1;
+	}
+
+	Leaderboard* lb = game_leaderboard_init();
+	if (lb == NULL) {
 		return 1;
 	}
 
@@ -413,7 +447,7 @@ int main() {
 		n = strchr(cmd, '\n');
 		if (n != NULL) *n = '\0';
 
-		f = parse_command(dict, settings, &game, cmd);
+		f = parse_command(dict, settings, &game, lb, cmd);
 	}
 
 	dict_destroy(dict);

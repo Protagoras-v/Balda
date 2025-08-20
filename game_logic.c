@@ -8,18 +8,18 @@
 #include "dict.h"
 #include "common.h"
 
-#define FIELD_SIZE 5
 
+#define LEADERBOARD_SIZE 50
 #define MAX_WORD_LEN 100
 #define MIN_WORD_LEN 3
+
+#define FIELD_SIZE 5
 
 #define STARTING_PLAYER_WORDS_CAPACITY 50
 
 #define DEFAULT_DIFFICULTY 0
 #define DEFAULT_MAX_TIME 10
 #define DEFAULT_FIRST_PLAYER 1
-
-#define LEADERBOARD_SIZE 50
 
 
 typedef struct User {
@@ -327,7 +327,13 @@ static void leaderboard_add_new(Leaderboard* lb, const char* user, int score) {
 		memcpy(lb->users[lb->count - 1].username, user, strlen(user) + 1);
 	}
 	else {
-		memcpy(lb->users[lb->count++].username, user, strlen(user) + 1);
+		int len = strlen(user) + 1;
+		lb->users[lb->count].username = malloc(len);
+		if (lb->users[lb->count].username == NULL) {
+			fprintf(stderr, "Ошибка при выделении памяти в leaderboard_add_new()\n");
+			return;
+		}
+		memcpy(lb->users[lb->count++].username, user, len);
 	}
 	lb->users[lb->count - 1].score = score;
 }
@@ -544,8 +550,14 @@ StatusCode game_confirm_move(Game* game, Dictionary* dict) {
 
 
 Leaderboard* game_leaderboard_init() {
-	FILE* file = fopen("leaderboard.txt", "r+");
-	if (file == NULL) return NULL;
+	FILE* file = fopen("leaderboard.txt", "r");
+	if (file == NULL) {
+		file = fopen("leaderboard.txt", "w");
+		if (file != NULL) {
+			fclose(file);
+		}
+		file = fopen("leaderboard.txt", "r");
+	}
 
 	Leaderboard* lb = malloc(sizeof(Leaderboard));
 	if (lb == NULL) {
@@ -621,11 +633,12 @@ void game_leaderboard_destroy(Leaderboard* lb) {
 }
 
 
-StatusCode game_add_to_leaderboard(Leaderboard* lb, Game* game, const char* username) {
-	if (game == NULL) return ERROR_NULL_POINTER;
+StatusCode game_add_into_leaderboard(Leaderboard* lb, const char* username, int score) {
+	//if (game == NULL) return ERROR_NULL_POINTER;
 	if (lb == NULL) return ERROR_NULL_POINTER;
 
-	leaderboard_add_new(lb, username, game->scores[0]);
+	//score is an temp param, there should be game->score[0] (human player`s score)
+	leaderboard_add_new(lb, username, score);
 	leaderboard_sort(lb);
 
 	//rewrite entire file with a sorted leaderboard
@@ -635,6 +648,7 @@ StatusCode game_add_to_leaderboard(Leaderboard* lb, Game* game, const char* user
 		fprintf(file, "%s %d\n", lb->users[i].username, lb->users[i].score);
 	}
 	fclose(file);
+	return SUCCESS;
 }
 
 
@@ -704,6 +718,15 @@ StatusCode game_get_winner(Game* game, int* winner_id) {
 	return SUCCESS;
 }
 
+StatusCode game_get_leaderboard(Leaderboard* lb, char usernames[], int scores[], int* size) {
+	if (lb == NULL) return ERROR_NULL_POINTER;
+	for (int i = 0; i < lb->count && i < LEADERBOARD_SIZE; i++) {
+		strncpy(usernames[i], lb->users[i].username, strlen(lb->users[i].username));
+		scores[i] = lb->users[i].score;
+	}
+	*size = lb->count;
+	return SUCCESS;
+}
 
 //--------------------------------------
 //---------------SETTINGS---------------

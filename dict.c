@@ -23,7 +23,7 @@ struct Dictionary {
 
 //возвращает позицию русской буквы в алфавите(1-33)
 static int char_to_index(unsigned char letter) {
-	letter = tolower(letter);
+	letter = to_lower(letter);
 	if (letter >= 224 && letter <= 229) { //а-е
 		return letter - 224;
 	}
