@@ -36,8 +36,7 @@ Leaderboard* game_leaderboard_init();
 
 void game_leaderboard_destroy(Leaderboard* lb);
 
-//score is an temp param
-StatusCode game_add_into_leaderboard(Leaderboard* lb, const char* username, int score);
+StatusCode game_add_into_leaderboard(Leaderboard* lb, Game* game, const char* username);
 
 
 //-------------------------------------------
@@ -56,6 +55,8 @@ StatusCode game_get_winner(Game* game, int* winner_id);
 StatusCode game_get_word(Game* game, char* word);
 
 StatusCode game_get_leaderboard(Leaderboard* lb, char usernames[], int scores[], int *size);
+
+bool game_is_enough_score_for_lb(Game* game, Leaderboard* lb);
 
 //------------------------------------------------
 //--------------------settings--------------------

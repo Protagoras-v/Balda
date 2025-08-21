@@ -293,13 +293,15 @@ static StatusCode add_player_word(PlayerWords* p, char* word) {
 int part_quick_sort(User* arr, int l, int r) {
 	int pivot = arr[(l + r) / 2].score;
 	while (l <= r) {
-		while (arr[l].score < pivot) l++;
-		while (arr[r].score > pivot) r--;
-		int temp = arr[l].score;
-		arr[l].score = arr[r].score;
-		arr[r].score = temp;
-		l++;
-		r--;
+		while (arr[l].score > pivot) l++;
+		while (arr[r].score < pivot) r--;
+		if (l <= r) {
+			int temp = arr[l].score;
+			arr[l].score = arr[r].score;
+			arr[r].score = temp;
+			l++;
+			r--;
+		}
 	}
 
 	return l;
@@ -399,7 +401,8 @@ Game* game_create(GameSettings* settings, Dictionary* dict) {
 	game->current_move.word_len = 0;
 }
 
-void game_destroy(Game* game) {
+void game_destroy(Game** game_) {
+	Game* game = *game_;
 	if (game == NULL) return;
 	field_destroy(game->field);
 	game->settings = NULL;
@@ -416,6 +419,7 @@ void game_destroy(Game* game) {
 	free(game->player2_words.words);
 
 	free(game);
+	*game_ = NULL;
 }
 
 
@@ -538,8 +542,8 @@ StatusCode game_confirm_move(Game* game, Dictionary* dict) {
 		}
 		
 		//pass the turn
+		move->score = (game->current_player == 1) ? game->scores[1] : game->scores[0];
 		game->current_player = (game->current_player == 1) ? 2 : 1;
-		move->score = (game->current_player == 0) ? game->scores[1] : game->scores[0];
 
 		return SUCCESS;
 	}
@@ -588,6 +592,9 @@ Leaderboard* game_leaderboard_init() {
 				if (*t == '\0') {
 					f = 0;
 				}
+				else {
+					f = 1;
+				}
 				break;
 			}
 		}
@@ -633,12 +640,13 @@ void game_leaderboard_destroy(Leaderboard* lb) {
 }
 
 
-StatusCode game_add_into_leaderboard(Leaderboard* lb, const char* username, int score) {
-	//if (game == NULL) return ERROR_NULL_POINTER;
+StatusCode game_add_into_leaderboard(Leaderboard* lb, Game* game, const char* username) {
+	if (game == NULL) return ERROR_NULL_POINTER;
 	if (lb == NULL) return ERROR_NULL_POINTER;
 
-	//score is an temp param, there should be game->score[0] (human player`s score)
-	leaderboard_add_new(lb, username, score);
+	int score = game->scores[0]; //0 because its a human and 1 is ai (obviously only human can be added into lb)
+	if (!game_is_enough_score_for_lb(game, lb)) return GAME_LOW_SCORE;
+	leaderboard_add_new(lb, username, game->scores[0]);
 	leaderboard_sort(lb);
 
 	//rewrite entire file with a sorted leaderboard
@@ -650,6 +658,20 @@ StatusCode game_add_into_leaderboard(Leaderboard* lb, const char* username, int 
 	fclose(file);
 	return SUCCESS;
 }
+
+
+bool game_is_enough_score_for_lb(Game* game, Leaderboard* lb) {
+	if (lb->count < LEADERBOARD_SIZE)
+		return true;
+	else {
+		//if its higher than 50-th place
+		if (game->scores[0] > lb->users[lb->count - 1].score) {
+			return true;
+		}
+	}
+	return false;
+}
+
 
 
 //---------------------------------

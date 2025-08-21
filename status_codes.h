@@ -32,7 +32,8 @@ typedef enum {
     GAME_INVALID_TIME = 305,
     GAME_INVALID_DIFFICULTY = 306,
     GAME_INVALID_FIRST_PLAYER = 307,
-    GAME_LETTER_IS_MISSING = 308,
+    GAME_LETTER_IS_MISSING = 308, //when a player tries to select a word before placing a letter
+    GAME_LOW_SCORE = 309, //for adding to leaderboard
 
 
     AI_ERROR_NO_MOVES_FOUND = 400,

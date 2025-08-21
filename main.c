@@ -129,23 +129,27 @@ int parse_command(Dictionary* dict, GameSettings* settings, Game** game, Leaderb
 			printf("%s %d\n", usernames[i], scores[i]);
 		}
 	}
+	else if (strcmp(ptr, "score") == 0) {
+		int s1, s2;
+		game_get_score(*game, 1, &s1);
+		game_get_score(*game, 2, &s2);
+		printf("%d %d\n", s1, s2);
+	}
 	else if (strcmp(ptr, "add_into_lb") == 0) {
 		char name[MAX_WORD_LEN];
 		int score;
 
 		printf("Введите имя:\n");
 		scanf("%s", &name);
-		printf("Введите счет:\n");
-		scanf("%s", &score);
 		clear_input_buffer();
 		char* n = strchr(name, '\n');
 		if (n != NULL) *n = '\0';
 
-		code = game_add_into_leaderboard(lb, name, score);
+		code = game_add_into_leaderboard(lb, *game, name);
 		check_code(code);
 	}
 	else if (strcmp(ptr, "new_game") == 0) {
-		if (*game != NULL) {
+		if (*game == NULL) {
 			*game = game_create(settings, dict);
 			if (*game == NULL) {
 				fprintf(stderr, "Ошибка при выделении памяти для *game\n");
@@ -184,7 +188,7 @@ int parse_command(Dictionary* dict, GameSettings* settings, Game** game, Leaderb
 		}
 	}
 	else if (strcmp(ptr, "save_game") == 0) {
-		if (*game == NULL) {
+		if (*game != NULL) {
 			char filename[100];
 			printf("Введите имя файла:\n");
 			scanf("%s", filename);
@@ -200,193 +204,261 @@ int parse_command(Dictionary* dict, GameSettings* settings, Game** game, Leaderb
 		}
 	}
 	else if (strcmp(ptr, "end_game") == 0) {
-		//only player_1 can end game (because 2 is an AI)
-		int id = 0;
-		game_get_player_id(*game, &id);
-
-		if (id == 1) {
+		if (*game != NULL) {
+			//only player_1 can end game (because 2 is an AI)
 			int id = 0;
-			game_get_winner(game, &id);
+			game_get_player_id(*game, &id);
 
-			//ask player`s name for leaderbord
 			if (id == 1) {
-				printf("Введите свое имя\n");
-				scanf("%s");
+				int d = 0;
+				printf("Хотите сохранить игру? 1 - да, 0 - нет\n");
+				scanf("%d", &d);
 				clear_input_buffer();
-			}
-		}
-		else {
-			printf("Закончить игру может только player_1 (человек)\n");
-		}
-	}
-	else if (strcmp(ptr, "confirm_move") == 0) {
-		if (!f) {
-			code = game_confirm_move(*game, dict);
-			if (code == GAME_INVALID_WORD) {
-				int r = -1;
 
-				char* word[MAX_WORD_LEN];
-				game_get_word(*game, word);
+				if (d == 0) {
+					id = 0;
+					game_get_winner(*game, &id);
 
-				while (r != 1 && r != 0) {
-					printf("Слово '%s' отсутствует в словаре, хотите добавить его ? 1 - да, 0 - нет\n", word);
-					scanf("%d", &r);
-					if (r == 1) {
-						dict_add_word(dict, word);
-						code = game_confirm_move(*game, dict);
-						check_code(code);
+					//ask player`s name for leaderbord
+					if (id == 1 && game_is_enough_score_for_lb(*game, lb)) {
+						char name[255];
+
+						printf("Введите свое имя\n");
+						scanf("%s", name);
 						clear_input_buffer();
+						char* t = strchr(name, '\n');
+						if (t != NULL) *t = '\0';
+
+						code = game_add_into_leaderboard(lb, *game, name);
+						check_code(code);
 					}
-					else if (r == 0) {
-						game_cancel_word_selection(*game);
-					}
-					else {
-						printf("Невалидный ввод\n");
-					}
+
+					game_destroy(game);
+				}
+				else if (d != 0) {
+					char filename[100];
+					printf("Введите имя файла:\n");
+					scanf("%s", filename);
+
+					char* n = strchr(filename, '\n');
+					if (n != NULL) *n = '\0';
+
+					clear_input_buffer();
+					game_save(*game, filename);
 				}
 			}
-			else { 
-				check_code(code); 
+			else {
+				printf("Закончить игру может только player_1 (человек)\n");
 			}
 		}
-		else
-			printf("ошибка команды\n");
+		else printf("Игра не запущена!\n");
+	}
+	else if (strcmp(ptr, "confirm_move") == 0) {
+		if (*game != NULL) {
+			if (!f) {
+				code = game_confirm_move(*game, dict);
+				if (code == GAME_INVALID_WORD) {
+					int r = -1;
+
+					char* word[MAX_WORD_LEN];
+					game_get_word(*game, word);
+
+					while (r != 1 && r != 0) {
+						printf("Слово '%s' отсутствует в словаре, хотите добавить его ? 1 - да, 0 - нет\n", word);
+						scanf("%d", &r);
+						if (r == 1) {
+							dict_add_word(dict, word);
+							code = game_confirm_move(*game, dict);
+							check_code(code);
+							clear_input_buffer();
+						}
+						else if (r == 0) {
+							game_cancel_word_selection(*game);
+						}
+						else {
+							printf("Невалидный ввод\n");
+						}
+					}
+				}
+				else {
+					check_code(code);
+				}
+			}
+			else
+				printf("ошибка команды\n");
+		}
+		else printf("Игра не запущена!\n");
 	}
 	else if (strcmp(ptr, "letter") == 0) {
-		int y = 0, x = 0;
-		char letter = '\0';
-		char* e1, * e2;
+		if (*game != NULL) {
+			int y = 0, x = 0;
+			char letter = '\0';
+			char* e1, * e2;
 
-		ptr = s;
-		while (*s != ' ' && *s != '\0') s++;
-		if (*s == '\0' || s == ptr) {
-			printf("ошибка команды\n");
-			return 1;
-		}
-		*s++ = '\0';
-		y = (int)strtol(ptr, &e1, 10);
-		if (*e1 != '\0') {
-			printf("ошибка команды\n");
-			return 1;
-		}
+			ptr = s;
+			while (*s != ' ' && *s != '\0') s++;
+			if (*s == '\0' || s == ptr) {
+				printf("ошибка команды\n");
+				return 1;
+			}
+			*s++ = '\0';
+			y = (int)strtol(ptr, &e1, 10);
+			if (*e1 != '\0') {
+				printf("ошибка команды\n");
+				return 1;
+			}
 
-		ptr = s;
-		while (*s != ' ' && *s != '\0') s++;
-		if (s == ptr) {
-			printf("ошибка команды\n");
-			return 1;
-		}
-		*s++ = '\0';
-		x = (int)strtol(ptr, &e2, 10);
-		if (*e2 != '\0') {
-			printf("ошибка команды\n");
-			return 1;
-		}
+			ptr = s;
+			while (*s != ' ' && *s != '\0') s++;
+			if (s == ptr) {
+				printf("ошибка команды\n");
+				return 1;
+			}
+			*s++ = '\0';
+			x = (int)strtol(ptr, &e2, 10);
+			if (*e2 != '\0') {
+				printf("ошибка команды\n");
+				return 1;
+			}
 
-		ptr = s;
-		while (*s != ' ' && *s != '\0') s++;
-		if (s == ptr) {
-			printf("ошибка команды\n");
-			return 1;
-		}
+			ptr = s;
+			while (*s != ' ' && *s != '\0') s++;
+			if (s == ptr) {
+				printf("ошибка команды\n");
+				return 1;
+			}
 
-		letter = *(s - 1);
-		
-		code = game_try_place_letter(*game, y, x, letter);
-		check_code(code);
-		print_field(*game);
+			letter = *(s - 1);
+
+			code = game_try_place_letter(*game, y, x, letter);
+			check_code(code);
+			print_field(*game);
+		}	
+		else printf("Игра не запущена!\n");
 	}
 	else if (strcmp(ptr, "add") == 0) {
-		int y = 0, x = 0;
-		char* e1, * e2, * e3;
+		if (*game != NULL) {
+			int y = 0, x = 0;
+			char* e1, * e2, * e3;
 
-		ptr = s;
-		while (*s != ' ' && *s != '\0') s++;
-		if (*s == '\0' || s == ptr) {
-			printf("ошибка команды\n");
-			return 1;
-		}
-		*s++ = '\0';
-		y = (int)strtol(ptr, &e1, 10);
-		if (*e1 != '\0') {
-			printf("ошибка команды\n");
-			return 1;
-		}
+			ptr = s;
+			while (*s != ' ' && *s != '\0') s++;
+			if (*s == '\0' || s == ptr) {
+				printf("ошибка команды\n");
+				return 1;
+			}
+			*s++ = '\0';
+			y = (int)strtol(ptr, &e1, 10);
+			if (*e1 != '\0') {
+				printf("ошибка команды\n");
+				return 1;
+			}
 
-		ptr = s;
-		while (*s != ' ' && *s != '\0') s++;
-		if (s == ptr) {
-			printf("ошибка команды\n");
-			return 1;
-		}
+			ptr = s;
+			while (*s != ' ' && *s != '\0') s++;
+			if (s == ptr) {
+				printf("ошибка команды\n");
+				return 1;
+			}
 
-		*s++ = '\0';
-		x = (int)strtol(ptr, &e2, 10);
-		if (*e2 != '\0') {
-			printf("ошибка команды\n");
-			return 1;
-		}
+			*s++ = '\0';
+			x = (int)strtol(ptr, &e2, 10);
+			if (*e2 != '\0') {
+				printf("ошибка команды\n");
+				return 1;
+			}
 
-		code = game_add_cell_into_word(*game, y, x);
-		if (code == GAME_LETTER_IS_MISSING) {
-			printf("Сначала нужно разместить букву!\n");
+			code = game_add_cell_into_word(*game, y, x);
+			if (code == GAME_LETTER_IS_MISSING) {
+				printf("Сначала нужно разместить букву!\n");
+			}
+			check_code(code);
+
+			char* buffer[MAX_WORD_LEN];
+			code = game_get_word(*game, buffer);
+			if (code == GAME_WORD_EMPTY) {
+				printf("Вы еще не доавили ни одной буквы в слово!\n");
+			}
+			else if (code == SUCCESS) {
+				printf("Текущее составленное слово: %s\n", buffer);
+			}
 		}
-		else check_code(code);
+		else printf("Игра не запущена!\n");
 	}
 	else if (strcmp(ptr, "print") == 0) {
-		print_field(*game);
+		if (*game != NULL)
+			print_field(*game);
+		else printf("Игра не запущена!\n");
 	}
 	else if (strcmp(ptr, "cancel_selection") == 0) {
-		game_cancel_word_selection(*game);
+		if (*game != NULL) {
+			game_cancel_word_selection(*game);
+		}
+		else printf("Игра не запущена!\n");
 	}
 	else if (strcmp(ptr, "remove_letter") == 0) {
-		game_clear_move(*game);
+		if (*game != NULL) {
+			game_clear_move(*game);
+		}
+		else printf("Игра не запущена!\n");
 	}
 	else if (strcmp(ptr, "print_word") == 0) {
-		char* buffer[MAX_WORD_LEN];
-		code = game_get_word(*game, buffer);
-		if (code == GAME_WORD_EMPTY) {
-			printf("Вы еще не доавили ни одной буквы в слово!\n");
+		if (*game != NULL) {
+			char* buffer[MAX_WORD_LEN];
+			code = game_get_word(*game, buffer);
+			if (code == GAME_WORD_EMPTY) {
+				printf("Вы еще не доавили ни одной буквы в слово!\n");
+			}
+			else if (code == SUCCESS) {
+				printf("Текущее составленное слово: %s\n", buffer);
+			}
 		}
-		else if (code == SUCCESS) {
-			printf("Текущее составленное слово: %s\n", buffer);
-		}
+		else printf("Игра не запущена!\n");
 	}
 	else if (strcmp(ptr, "print_place_words") == 0) {
-		char* e1;
-		int id = 0;
+		if (*game != NULL) {
+			char* e1;
+			int id = 0;
 
-		ptr = s;
-		while (*s != ' ' && *s != '\0') s++;
-		if (*s != '\0') {
-			printf("ошибка команды\n");
-			return 1;
-		}
-		*s++ = '\0';
-		id = (int)strtol(ptr, &e1, 10);
-		if (*e1 != '\0') {
-			printf("ошибка команды\n");
-			return 1;
-		}
-
-		char** words;
-		int count;
-		code = game_get_player_words(*game, id, &words, &count);
-		if (code == GAME_INVALID_ID) {
-			printf("Неверный id\n");
-		}
-		else if (code == SUCCESS) {
-			printf("Слова, поставленные пользователем с id %d: ", id);
-			for (int i = 0; i < count; i++) {
-				printf("%s ", words[i]);
+			ptr = s;
+			while (*s != ' ' && *s != '\0') s++;
+			if (*s != '\0') {
+				printf("ошибка команды\n");
+				return 1;
 			}
-			printf("\n");
+			*s++ = '\0';
+			id = (int)strtol(ptr, &e1, 10);
+			if (*e1 != '\0') {
+				printf("ошибка команды\n");
+				return 1;
+			}
+
+			char** words;
+			int count;
+			code = game_get_player_words(*game, id, &words, &count);
+			if (code == GAME_INVALID_ID) {
+				printf("Неверный id\n");
+			}
+			else if (code == SUCCESS) {
+				printf("Слова, поставленные пользователем с id %d: ", id);
+				for (int i = 0; i < count; i++) {
+					printf("%s ", words[i]);
+				}
+				printf("\n");
+			}
 		}
+		else printf("Игра не запущена!\n");
 	}
 	else if (strcmp(ptr, "help") == 0) {
 		printf("Доступные команды:\n"
-			"  place_letter <y> <x> <буква>  - поставить букву на поле\n"
-			"  add_into_word <y> <x>         - добавить клетку в составляемое слово\n"
+			"  print_leaderboard             - таблица лидеров\n"
+			"  add_into_lb                   - добавить в таблицу лидеров\n"
+			"  new_game                      - новая игра\n"
+			"  load_game                     - загрузить игру\n"
+			"  save_game                     - сохранить игру\n"
+			"  end_game                      - закончить игру\n"
+			"  letter <y> <x> <буква>        - поставить букву на поле\n"
+			"  add <y> <x>                   - добавить клетку в составляемое слово\n"
 			"  confirm_move                  - подтвердить ход\n"
 			"  cancel_selection              - отменить выбор слова\n"
 			"  remove_letter                 - убрать поставленную букву\n"
@@ -452,6 +524,7 @@ int main() {
 
 	dict_destroy(dict);
 	game_destroy(game);
+	game_leaderboard_destroy(lb);
 	free(settings);
 	return 0;
 }
