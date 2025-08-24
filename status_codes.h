@@ -36,7 +36,7 @@ typedef enum {
     GAME_LOW_SCORE = 309, //for adding to leaderboard
 
 
-    AI_ERROR_NO_MOVES_FOUND = 400,
-    AI_ERROR_TIMEOUT = 401
-
+    AI_NO_MOVES_FOUND = 400,
+    AI_TIMEOUT = 401,
+    AI_THREAD_ERROR = 402
 } StatusCode;

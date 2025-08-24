@@ -12,11 +12,13 @@
 
 typedef struct TrieNode {
 	struct TrieNode* children[33];
+	int height; // used for search optimization
 	bool is_end_of_the_word;
 } TrieNode;
 
 struct Dictionary {
 	TrieNode* root;
+	TrieNode* rootRev;
 	int count;
 };
 
@@ -41,17 +43,22 @@ static TrieNode* create_node() {
 		fprintf(stderr, "Ошибка при выделении памяти в функции init_trie()\n");
 		return NULL;
 	}
+	node->height = 0;
 	return node;
 }
 
 static void insert_word_into_trie(TrieNode* root, const char* word) {
 	TrieNode* current = root;
+	int wLen = strlen(word);
 
 	for (int i = 0; word[i]; i++) {
 		int index = char_to_index(word[i]);
 		if (current->children[index] == NULL) {
 			current->children[index] = create_node();
 		}
+		if (wLen - i > current->height) {
+			current->height = wLen - i;
+		}	
 		current = current->children[index];
 	}
 	current->is_end_of_the_word = 1;
@@ -83,6 +90,27 @@ static bool is_word_in_trie(TrieNode* root, const char* word) {
 	return 0;
 }
 
+static void insert_into_reverse_trie(TrieNode* root, const char* word) {
+	reverse_word(word);
+	int len = word;
+	for (int i = 0; i < len; i++) {
+		insert_word_into_trie(root, &word[i]); //all possible prefixes (balda: adlab dlab lab ab b)
+	}
+}
+
+static bool prefix_exists(TrieNode* root, const char* prefix) {
+	TrieNode* current = root;
+	int len = strlen(prefix);
+	for (int i = 0; i < len; i++) {
+		int index = char_to_index(prefix[i]);
+		if (current->children[index] == NULL) {
+			return 0;
+		}
+		current = current->children[index];
+	}
+	return 1;
+}
+
 
 Dictionary* dict_init() {
 	FILE* file = fopen(FILE_NAME, "r+");
@@ -91,6 +119,8 @@ Dictionary* dict_init() {
 		return NULL;
 	}
 
+	printf("%d\n", sizeof(TrieNode));
+
 	Dictionary* dict = malloc(sizeof(Dictionary));
 	if (dict == NULL) {
 		fprintf(stderr, "Ошибка выделения памяти для Dictionary\n");
@@ -98,8 +128,16 @@ Dictionary* dict_init() {
 		return NULL;
 	}
 	dict->count = 0;
+
 	dict->root = create_node();
 	if (dict->root == NULL) {
+		free(dict);
+		fclose(file);
+		return NULL;
+	}
+
+	dict->rootRev = create_node();
+	if (dict->rootRev == NULL) {
 		free(dict);
 		fclose(file);
 		return NULL;
@@ -115,6 +153,7 @@ Dictionary* dict_init() {
 
 		if (is_word_valid(buffer)) {
 			insert_word_into_trie(dict->root, buffer);
+			insert_into_reverse_trie(dict->rootRev, buffer);
 			dict->count++;
 		}
 		else {
@@ -140,6 +179,7 @@ bool dict_word_exists(Dictionary* dict, const char* word) {
 	}
 	return is_word_in_trie(dict->root, word);
 }
+
 
 StatusCode dict_add_word(Dictionary* dict, const char* word) {
 	if (!is_word_valid(word)) {
@@ -193,12 +233,30 @@ StatusCode dict_get_starting_word(Dictionary* dict, char st_word[]) {
 	return SUCCESS;
 }
 
-//Функция принимает указатель, а не структуру, потому что при попытке передать неполную структуру (объявленную в dict.h) компилятор выдаст ошибку (т.е. при вызове dict_print() из других файлов)
-//void dict_print(Dictionary *dict) {
-//	for (int i = 0; i < dict->st_words_count; i++) {
-//		printf("%s\n", dict->starting_words[i]);
-//	}
-//}
+
+bool dict_reverse_prefix_exists(Dictionary* dict, char* prefix) {
+	if (dict == NULL) {
+		fprintf(stderr, "ERROR_NULL_POINTER in dict_reverse_prefix_exists()\n");
+		return 0;
+	}
+	return prefix_exists(dict->rootRev, prefix);
+}
+
+bool dict_prefix_exists(Dictionary* dict, char* prefix) {
+	if (dict == NULL) {
+		fprintf(stderr, "ERROR_NULL_POINTER in dict_reverse_prefix_exists()\n");
+		return 0;
+	}
+	return prefix_exists(dict->root, prefix);
+}
+
+bool dict_reverse_word_exists(Dictionary* dict, char* word) {
+	if (!is_word_valid(word)) {
+		printf("Слово %s содержит недопустимые символы!\n", word);
+		return 0;
+	}
+	return is_word_in_trie(dict->rootRev, word);
+}
 
 
 

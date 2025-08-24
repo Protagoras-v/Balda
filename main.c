@@ -83,10 +83,10 @@ void check_code(StatusCode code) {
 	case GAME_INVALID_ID:
 		printf("Неверный идентификатор игрока\n");
 		break;
-	case AI_ERROR_NO_MOVES_FOUND:
+	case AI_NO_MOVES_FOUND:
 		printf("ИИ не нашел доступных ходов\n");
 		break;
-	case AI_ERROR_TIMEOUT:
+	case AI_TIMEOUT:
 		printf("Время на ход ИИ истекло\n");
 		break;
 	default:

@@ -33,28 +33,22 @@ typedef struct PlayerWords {
 	int count;
 } PlayerWords;
 
-typedef struct WordCell {
-	int y : 5;
-	int x : 5;
-	char letter;
-} WordCell;
-
-typedef struct Cell {
+struct Cell {
 	char letter;
 	unsigned int player_id : 2; // 0 - клетка пустая, 1 - игрок, 2 - компьютер
 	unsigned int new : 1;
-} Cell;
+};
 
-typedef struct GameField {
+struct GameField {
 	Cell** grid;
 	int width;
 	int height;
-} GameField;
+};
 
-
-struct Leaderboard {
-	int count;
-	User users[LEADERBOARD_SIZE];
+struct WordCell {
+	int y : 5;
+	int x : 5;
+	char letter;
 };
 
 struct Move {
@@ -64,6 +58,11 @@ struct Move {
 	WordCell word[MAX_WORD_LEN];
 	int word_len;
 	int score;
+};
+
+struct Leaderboard {
+	int count;
+	User users[LEADERBOARD_SIZE];
 };
 
 struct GameSettings {
@@ -144,6 +143,44 @@ static void field_destroy(GameField* field) {
 	free(field);
 }
 
+static GameField* field_make_copy(GameField* field) {
+	GameField* copy = malloc(sizeof(GameField));
+	if (copy == NULL) {
+		fprintf(stderr, "Ошибка при выделении памяти для GameField\n");
+		return NULL;
+	}
+	copy->grid = malloc(FIELD_SIZE * sizeof(Cell*));
+	if (copy->grid == NULL) {
+		fprintf(stderr, "Ошибка при выделении памяти для field->grid\n");
+		free(copy);
+		return NULL;
+	}
+
+	for (int i = 0; i < FIELD_SIZE; i++) {
+		copy->grid[i] = malloc(FIELD_SIZE * sizeof(Cell));
+
+		if (copy->grid[i] == NULL) {
+			fprintf(stderr, "Ошибка при выделении памяти для field->grid[%d]\n", i);
+			for (int j = 0; j < i; j++) {
+				free(copy->grid[j]);
+			}
+			free(copy->grid);
+			free(copy);
+			return NULL;
+		}
+
+		for (int j = 0; j < FIELD_SIZE; j++) {
+			copy->grid[i][j].letter = field->grid[i][j].letter;
+			copy->grid[i][j].player_id = field->grid[i][j].player_id;
+		}
+	}
+
+	copy->height = FIELD_SIZE;
+	copy->width = FIELD_SIZE;
+
+	return copy;
+}
+
 static void field_set_letter(GameField* field, int y, int x, unsigned char letter, int player_id) {
 	field->grid[y][x].letter = letter;
 	field->grid[y][x].player_id = player_id;
@@ -158,43 +195,6 @@ static void field_remove_letter(GameField* field, int y, int x) {
 	field->grid[y][x].letter = '\0';
 	field->grid[y][x].player_id = 0;
 	field->grid[y][x].new = 0;
-}
-
-
-static bool is_cell_empty(GameField* field, int y, int x) {
-	if (field->grid[y][x].letter == '\0') {
-		return 1;
-	}
-	return 0;
-}
-
-static bool is_cell_coordinates_valid(GameField* field, int y, int x) {
-	if (x >= field->width || y >= field->height || x < 0 || y < 0) {
-		return 0;
-	}
-	return 1;
-}
-
-
-//Each new letter must be connected to others
-static bool is_letter_near(GameField* field, int y, int x) {
-	//слева 
-	if (x - 1 >= 0 && !is_cell_empty(field, y, x - 1)) {
-		return 1;
-	}
-	//справа
-	if (x + 1 < field->width && !is_cell_empty(field, y, x + 1)) {
-		return 1;
-	}
-	//снизу
-	if (y - 1 >= 0 && !is_cell_empty(field, y - 1, x)) {
-		return 1;
-	}
-	//сверху
-	if (y + 1 < field->height && !is_cell_empty(field, y + 1, x)) {
-		return 1;
-	}
-	return 0;
 }
 
 //Is the selected cell connected to the previous one in current_move.word 
@@ -341,10 +341,46 @@ static void leaderboard_add_new(Leaderboard* lb, const char* user, int score) {
 }
 
 
+//Each new letter must be connected to others
+bool is_letter_near(GameField* field, int y, int x) {
+	//слева 
+	if (x - 1 >= 0 && !is_cell_empty(field, y, x - 1)) {
+		return 1;
+	}
+	//справа
+	if (x + 1 < field->width && !is_cell_empty(field, y, x + 1)) {
+		return 1;
+	}
+	//снизу
+	if (y - 1 >= 0 && !is_cell_empty(field, y - 1, x)) {
+		return 1;
+	}
+	//сверху
+	if (y + 1 < field->height && !is_cell_empty(field, y + 1, x)) {
+		return 1;
+	}
+	return 0;
+}
+
+bool is_cell_empty(GameField* field, int y, int x) {
+	if (field->grid[y][x].letter == '\0') {
+		return 1;
+	}
+	return 0;
+}
+
+bool is_cell_coordinates_valid(GameField* field, int y, int x) {
+	if (x >= field->width || y >= field->height || x < 0 || y < 0) {
+		return 0;
+	}
+	return 1;
+}
+
 
 //-----------------------------------------------------------------------------------------------------
 //---------------------------------------------INTERFACES----------------------------------------------
 //-----------------------------------------------------------------------------------------------------
+
 
 
 Game* game_create(GameSettings* settings, Dictionary* dict) {
@@ -439,6 +475,7 @@ StatusCode game_try_place_letter(Game* game, int y,int x, char letter) {
 		return SUCCESS;
 	}
 }
+
 
 StatusCode game_add_cell_into_word(Game* game, int y, int x) {
 	if (game == NULL) return ERROR_NULL_POINTER;
@@ -672,6 +709,80 @@ bool game_is_enough_score_for_lb(Game* game, Leaderboard* lb) {
 	return false;
 }
 
+Game* game_make_copy(Game* game) {
+	Game* copy = malloc(sizeof(Game));
+	if (copy == NULL) {
+		fprintf(stderr, "Не удалось создать копию Game (ошибка при выделении памяти)\n");
+		return NULL;
+	}
+	copy->current_move = game->current_move;
+	copy->current_player = game->current_player;
+	copy->scores[0] = game->scores[0];
+	copy->scores[1] = game->scores[1];
+
+	copy->settings = game_init_settings();
+	if (copy->settings == NULL) {
+		fprintf(stderr, "Не удалось создать копию Game (ошибка при выделении памяти)\n");
+		free(copy);
+		return NULL;
+	}
+	copy->settings->difficulty = game->settings->difficulty;
+	copy->settings->first_player = game->settings->first_player;
+	copy->settings->time_limit = game->settings->time_limit;
+
+	copy->field = field_make_copy(game->field);
+	if (copy->field == NULL) {
+		fprintf(stderr, "Не удалось создать копию Game (ошибка при выделении памяти)\n");
+		free(copy->settings);
+		free(copy);
+		return NULL;
+	}
+
+	copy->player1_words.capacity = game->player1_words.capacity;
+	copy->player1_words.count = game->player1_words.count;
+	copy->player1_words.words = malloc(sizeof(char*) * copy->player1_words.capacity);
+	for (int i = 0; i < copy->player1_words.count; i++) {
+		int len = strlen(game->player1_words.words[i]) + 1;
+		copy->player1_words.words[i] = malloc(sizeof(char) * len);
+		//free all words which were already allocated 
+		if (copy->player1_words.words[i] == NULL) {
+			while (i > 0) {
+				i--;
+				free(copy->player1_words.words[i]);
+			}
+			free(copy->player1_words.words);
+			free(copy->settings);
+			free(copy->field);
+			free(copy);
+			fprintf(stderr, "Не удалось создать копию Game (ошибка при выделении памяти)\n");
+			return NULL;
+		}
+		memcpy(copy->player1_words.words[i], game->player1_words.words[i], len * sizeof(char));
+	}
+
+	copy->player2_words.capacity = game->player2_words.capacity;
+	copy->player2_words.count = game->player2_words.count;
+	copy->player2_words.words = malloc(sizeof(char*) * copy->player2_words.capacity);
+	for (int i = 0; i < copy->player2_words.count; i++) {
+		int len = strlen(game->player2_words.words[i]) + 1;
+		copy->player2_words.words[i] = malloc(sizeof(char) * len);
+		//free all words which were already allocated 
+		if (copy->player2_words.words[i] == NULL) {
+			while (i > 0) {
+				i--;
+				free(copy->player2_words.words[i]);
+			}
+			free(copy->player2_words.words);
+			free(copy->settings);
+			free(copy);
+			fprintf(stderr, "Не удалось создать копию Game (ошибка при выделении памяти)\n");
+			return NULL;
+		}
+		memcpy(copy->player2_words.words[i], game->player2_words.words[i], len * sizeof(char));
+	}
+
+	return copy;
+}
 
 
 //---------------------------------
@@ -684,6 +795,11 @@ StatusCode game_get_cell(Game* game, int x, int y, unsigned char* res) {
 	if (!is_cell_coordinates_valid(game->field, y, x)) return FIELD_INVALID_COORDINATES;
 
 	return game->field->grid[y][x].letter;
+}
+
+GameField* game_get_field(Game* game) {
+	if (game == NULL) return NULL;
+	return game->field;
 }
 
 StatusCode game_get_player_id(Game* game, int* id) {
@@ -748,6 +864,13 @@ StatusCode game_get_leaderboard(Leaderboard* lb, char usernames[], int scores[],
 	}
 	*size = lb->count;
 	return SUCCESS;
+}
+
+int game_get_difficulty(Game* game) {
+	return game->settings->difficulty;
+}
+int game_get_time_limit(Game* game) {
+	return game->settings->time_limit;
 }
 
 //--------------------------------------

@@ -1,3 +1,4 @@
+#include <string.h>
 #include "common.h"
 
 bool is_it_ru_letter(const unsigned char c) {
@@ -30,4 +31,14 @@ unsigned char to_lower(unsigned char c) {
 		return 184; //¸
 	}
 	return c;
+}
+
+void reverse_word(char* word) {
+	int len = strlen(word);
+	
+	for (int i = 0; i < len / 2; i++) {
+		char temp = word[len - i];
+		word[len - 1 - i] = word[i];
+		word[i] = temp;
+	}
 }

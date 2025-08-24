@@ -4,8 +4,17 @@
 
 #include "dict.h"
 
-typedef struct Leaderboard Leaderboard;
+#define MAX_WORD_LEN 100
+
+typedef struct WordCell WordCell;
+
 typedef struct Move Move;
+
+typedef struct Leaderboard Leaderboard;
+
+typedef struct Cell Cell;
+
+typedef struct GameField GameField;
 
 typedef struct GameSettings GameSettings;
 
@@ -38,10 +47,16 @@ void game_leaderboard_destroy(Leaderboard* lb);
 
 StatusCode game_add_into_leaderboard(Leaderboard* lb, Game* game, const char* username);
 
+Game* game_make_copy(Game* game);
+
 
 //-------------------------------------------
 //--------------------get--------------------
 //-------------------------------------------
+int game_get_difficulty(Game* game);
+int game_get_time_limit(Game* game);
+GameField* game_get_field(Game* game);
+
 StatusCode game_get_cell(Game* game, int x, int y, unsigned char* res);
 
 int game_get_player_id(Game* game, int* id);
@@ -72,11 +87,9 @@ StatusCode game_set_first_player(GameSettings* settings, int time);
 void print_settings(GameSettings* settings);
 
 
+//additional
+bool is_letter_near(GameField* field, int y, int x);
 
-//также нужны функции, которые проверяют, есть ли клетка в выделенном слове для UI
+bool is_cell_empty(GameField* field, int y, int x);
 
-//нужна функция и поле в структуре, которое будет хранить все поставленные слова игроков
-
-//Нужна функция, которая будет проверять, поставлена ли буква на этом ходу (для того, чтобы разделить цикл с формированием слова и саму постановку буквы)
-
-//!!!НУЖНО ПРОВЕРЯТЬ, ВКЛЮЧЕНА ЛИ БУКВА В СЛОВО
+bool is_cell_coordinates_valid(GameField* field, int y, int x);
