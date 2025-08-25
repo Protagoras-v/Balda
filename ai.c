@@ -4,6 +4,7 @@
 
 #include "ai.h"
 #include "game_logic.h"
+#include "common.h"
 
 #define MAX_WORD_LEN 26
 #define MAX_PATH_COUNT 1000 //it should be dynamics
@@ -40,13 +41,14 @@ struct Move {
 struct AIState {
 	Move best_move;
 	unsigned long long end_time; //ms
-	unsigned int is_move_found : 1;
+	volatile unsigned char is_move_found : 1;
 
-	volatile unsigned int is_additional_time : 1;
+	volatile unsigned char is_additional_time : 1;
 	volatile unsigned int time_limit; //volatile because if user gives an additional time, this field will contain this new value
 
-	volatile unsigned int is_computation_complete : 1;
-	volatile int percentage;
+	volatile unsigned char is_computation_complete : 1;
+	volatile unsigned char is_started : 1; // has the move already started 
+	volatile unsigned char percentage : 7;
 
 	HANDLE additional_time_event;
 };
@@ -61,10 +63,11 @@ typedef struct Path {
 
 
 
-static void state_reset(AIState* state, int score) {
+static void state_set(AIState* state, int score, int time_limit) {
 	state->is_computation_complete = 0;
 	state->is_move_found = 0;
 	state->percentage = 0;
+	state->time_limit = time_limit;
 
 	state->best_move.letter = '\0';
 	state->best_move.y = -1;
@@ -100,8 +103,9 @@ static int dfs_easy_direct(AIState* state, Dictionary* dict, GameField* field, b
 	if (*counter % 256 == 0 && GetTickCount64() >= state->end_time) {
 		state->is_computation_complete = 1;
 		WaitForSingleObject(state->additional_time_event, INFINITE);
+		state->is_computation_complete = 0;
 		if (state->is_additional_time) {
-			state->end_time = GetTickCount64() + state->time_limit;
+			state->end_time = GetTickCount64() + state->time_limit * 1000;
 		}
 		else {
 			return -1;
@@ -135,11 +139,12 @@ static int dfs_easy_direct(AIState* state, Dictionary* dict, GameField* field, b
 
 		if (is_cell_coordinates_valid(field, newY, newX) && !visited[newY][newX] && !is_cell_empty(field, newY, newX)) {
 			int res = dfs_easy_direct(state, dict, field, visited, path, newY, newX, counter);
-			if (res == 1 || res == -1) return res; // -1 - time_out, 1 - word have been founded
+			if (res == 1 || res == -1) return res; // -1 - time_out, 1 - word have been founded, 0 - dead end
 		}
 	}
 	path->len--;
 	visited[y][x] = 0;
+	return 0;
 }
 
 
@@ -149,8 +154,9 @@ static int dfs_easy_rev(AIState* state, Dictionary* dict, GameField* field, bool
 	if (*counter % 256 == 0 && GetTickCount64() >= state->end_time) {
 		state->is_computation_complete = 1;
 		WaitForSingleObject(state->additional_time_event, INFINITE);
+		state->is_computation_complete = 0;
 		if (state->is_additional_time) {
-			state->end_time = GetTickCount64() + state->time_limit;
+			state->end_time = GetTickCount64() + state->time_limit * 1000;
 		}
 		else {
 			return -1;
@@ -170,30 +176,40 @@ static int dfs_easy_rev(AIState* state, Dictionary* dict, GameField* field, bool
 		return 0;
 	}
 
-	//if we found reverse prefix, we immediately try to find the whole word 
+	//if we found reverse prefix, try to find all word 
 	if (dict_reverse_word_exists(dict, prefix)) {
+		int letterY = path->cells[0].y;
+		int letterX = path->cells[0].x;
 		rotate_path(path);
-		int res = dfs_easy_direct(state, dict, field, visited, path, y, x, counter);
-		if (res == 1 || res == -1) return res; // -1 - time_out, 1 - word have been founded
-		else rotate_path(path); //if its not then continue searching
+		//starting points for dfs_direct() - cells around placed letter
+		int dy[] = { -1, 1, 0, 0 };
+		int dx[] = { 0, 0, -1, 1 };
+		for (int i = 0; i < 4; i++) {
+			int newY = letterY + dy[i];
+			int newX = letterX + dx[i];
+			if (is_cell_coordinates_valid(field, newY, newX) && !visited[newY][newX] && !is_cell_empty(field, newY, newX)) {
+				int res = dfs_easy_direct(state, dict, field, visited, path, y, x, counter);
+				if (res == 1 || res == -1) return res; // -1 - time_out, 1 - word have been founded, 0 - dead end
+			}
+		}
+		rotate_path(path); //if its not then continue searching
 	}
 
 	//up, down, left, right
 	int dy[] = { -1, 1, 0, 0 };
 	int dx[] = { 0, 0, -1, 1 };
-
 	for (int i = 0; i < 4; i++) {
 		int newY = y + dy[i];
 		int newX = x + dx[i];
-
 		if (is_cell_coordinates_valid(field, newY, newX) && !visited[newY][newX] && !is_cell_empty(field, newY, newX)) {
 			int res = dfs_easy_rev(state, dict, field, visited, path, newY, newX, counter);
-			if (res == 1 || res == -1) return res; // -1 - time_out, 1 - word have been founded
+			if (res == 1 || res == -1) return res; // -1 - time_out, 1 - word have been founded, 0 - dead end
 		}
 	}
 
 	path->len--;
 	visited[y][x] = 0;
+	return 0;
 }
 
 
@@ -225,9 +241,12 @@ static void ai_easy(Dictionary* dict, Game* game, AIState* state) {
 			}
 		}
 	}
+	int total_combinations = count * 33;
 	//try all candidates
 	for (int i = 0; i < count; i++) {
 		for (int let = 0; let < 33; let++) {
+			//progress
+			state->percentage = (i * 33 + let) * 100 / total_combinations;
 			//check time limit, value should be divisible by 2, since in this case the compiler optimizes it to bit mask
 			if (counter % 128 == 0 && GetTickCount() >= state->end_time) {
 				if (state->is_move_found == 0) {
@@ -235,6 +254,7 @@ static void ai_easy(Dictionary* dict, Game* game, AIState* state) {
 					state->is_computation_complete = 1; //but is_move_found is still 0, so we can check this situation in main loop and request additional time
 
 					WaitForSingleObject(state->additional_time_event, INFINITE);
+					state->is_computation_complete = 0;
 
 					if (state->is_additional_time == 1) {
 						state->end_time = GetTickCount64() + state->time_limit * 1000;
@@ -254,18 +274,29 @@ static void ai_easy(Dictionary* dict, Game* game, AIState* state) {
 
 			int res = easy_found(state, dict, field, y, x, &path, &counter);
 			if (res) {
-				state->best_move.letter = alphabet[let];
-				state->best_move.y = y;
-				state->best_move.x = x;
-				state->best_move.word_len = path.len;
-				for (int i = 0; i < path.len; i++)
-					state->best_move.word[i] = path.cells[i];
+				char buffer[MAX_WORD_LEN + 1];
+				WordCell_to_char(state->best_move.word, buffer, state->best_move.word_len);
 
-				state->is_move_found = 1;
-				state->percentage = 100;
-				state->is_computation_complete = 1;	
+				if (!is_word_used(game, buffer)) {
+					state->best_move.letter = alphabet[let];
+					state->best_move.y = y;
+					state->best_move.x = x;
+					state->best_move.word_len = path.len;
+					for (int i = 0; i < path.len; i++)
+						state->best_move.word[i] = path.cells[i];
+					state->best_move.score += path.len;
 
-				return;
+					state->is_move_found = 1;
+					state->percentage = 100;
+					state->is_computation_complete = 1;
+					state->is_started = 0;
+
+					return;
+				}
+				else {
+					//word is used
+					field->grid[y][x].letter = '\0';
+				}
 			}
 			else if (res == 0) {
 				//word not found
@@ -280,7 +311,7 @@ static void ai_easy(Dictionary* dict, Game* game, AIState* state) {
 }
 
 
-void ai_thread(void* param1, void* param2, void* param3) {
+static void ai_thread(void* param1, void* param2, void* param3) {
 	Dictionary* dict = (Dictionary*)param1;
 	Game* game = game_make_copy((Game*)param2);
 	AIState* state = (AIState*)param3;
@@ -295,12 +326,9 @@ void ai_thread(void* param1, void* param2, void* param3) {
 		fprintf(stderr, "Ошибка при получении счета в ai_thread()\n");
 		return;
 	}
-	
-	// Это нужно вынести в отдельную функции AIState_init(), чтобы создать Event один раз
-	state_reset(state, score);
-	state->additional_time_event = CreateEvent(NULL, FALSE, FALSE, NULL);
 
-	state->time_limit = game_get_time_limit(game);
+	state_set(state, score, game_get_time_limit(game));
+
 	//different algorithms for different difficulties
 	if (game_get_difficulty(game) == 0) {
 		ai_easy(dict, game, state);
@@ -311,8 +339,14 @@ void ai_thread(void* param1, void* param2, void* param3) {
 	_endthread();
 }
 
+
 StatusCode ai_start_turn(Game* game, AIState* state, Dictionary* dict) {
+	if (game == NULL) return ERROR_NULL_POINTER;
+	if (state == NULL) return ERROR_NULL_POINTER;
+	if (dict == NULL) return ERROR_NULL_POINTER;
+
 	state->is_computation_complete = 0;
+	state->is_started = 1;
 
 	//8-byte (in 64-bit system) value, thread handle (NOT AN ID!)
 	uintptr_t thread_handle = _beginthread(
@@ -326,4 +360,75 @@ StatusCode ai_start_turn(Game* game, AIState* state, Dictionary* dict) {
 		return AI_THREAD_ERROR;
 	}
 	return SUCCESS;
+}
+
+
+AIState* ai_state_init() {
+	AIState* state = malloc(sizeof(AIState));
+	if (state == NULL) {
+		fprintf(stderr, "Ошибка при выделении памяти в ai_state_init()\n");
+		return NULL;
+	}
+
+	state->additional_time_event = CreateEvent(NULL, FALSE, FALSE, NULL); // event for thread waiting
+	state->percentage = 0;
+	state->is_move_found = 0;
+	state->is_computation_complete = 1;
+	state->additional_time_event = 0;
+
+	state->best_move.letter = '\0';
+	state->best_move.y = -1;
+	state->best_move.x = -1;
+	state->best_move.word_len = 0;
+	state->best_move.score = 0;
+
+	return state;
+}
+
+
+
+// 1 - start, 0 - stop
+StatusCode ai_set_stop(AIState* state) {
+	if (state == NULL) return ERROR_NULL_POINTER;
+	state->is_started = 0;
+	return SUCCESS;
+}
+
+StatusCode ai_give_additional_time(AIState* state, bool n, int additional_time) {
+	if (state == NULL) return ERROR_NULL_POINTER;
+	if (!n) state->is_additional_time = 0;
+	else {
+		state->is_additional_time = 1;
+		state->time_limit = additional_time;
+	}
+	return SUCCESS;
+}
+
+//true - started, false - stoped
+bool ai_status(AIState* state) {
+	if (state == NULL) return false;
+	return state->is_started;
+}
+
+bool ai_need_additional_time(AIState* state) {
+	if (state == NULL) return false;
+	return state->is_computation_complete && !state->is_move_found;
+}
+
+bool ai_word_founded(AIState* state) {
+	if (state == NULL) return false;
+	return state->is_computation_complete && state->is_move_found;
+}
+
+int ai_get_percentage(AIState* state) {
+	if (state == NULL) return -1;
+	return state->percentage;
+}
+
+HANDLE ai_get_handle(AIState* state) {
+	return state->additional_time_event;
+}
+
+Move* ai_get_move(AIState* state) {
+	return &state->best_move;
 }

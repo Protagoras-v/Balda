@@ -1,5 +1,12 @@
 #include <string.h>
 #include "common.h"
+#include "game_logic.h"
+
+struct WordCell {
+	int y : 5;
+	int x : 5;
+	char letter;
+};
 
 bool is_it_ru_letter(const unsigned char c) {
 	if ((c >= 192 && c <= 223) || //À-ß
@@ -41,4 +48,12 @@ void reverse_word(char* word) {
 		word[len - 1 - i] = word[i];
 		word[i] = temp;
 	}
+}
+
+void WordCell_to_char(WordCell source[], char dest[], int word_len) {
+	int i = 0;
+	while (i < word_len) {
+		dest[i] = source[i++].letter;
+	}
+	dest[i] = '\0';
 }

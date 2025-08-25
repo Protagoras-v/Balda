@@ -8,3 +8,5 @@ bool is_word_valid(const unsigned char* word);
 unsigned char to_lower(unsigned char c);
 
 void reverse_word(char* word);
+
+void WordCell_to_char(WordCell source[], char dest[], int word_len)

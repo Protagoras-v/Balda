@@ -49,17 +49,19 @@ StatusCode game_add_into_leaderboard(Leaderboard* lb, Game* game, const char* us
 
 Game* game_make_copy(Game* game);
 
+StatusCode game_set_move(Game* game, Move* move);
+
 
 //-------------------------------------------
 //--------------------get--------------------
 //-------------------------------------------
 int game_get_difficulty(Game* game);
 int game_get_time_limit(Game* game);
+int game_get_player_id(Game* game);
+
 GameField* game_get_field(Game* game);
 
 StatusCode game_get_cell(Game* game, int x, int y, unsigned char* res);
-
-int game_get_player_id(Game* game, int* id);
 
 StatusCode game_get_score(Game* game, int id, int* score);
 
@@ -93,3 +95,5 @@ bool is_letter_near(GameField* field, int y, int x);
 bool is_cell_empty(GameField* field, int y, int x);
 
 bool is_cell_coordinates_valid(GameField* field, int y, int x);
+
+bool is_word_used(Game* game, char* buffer);

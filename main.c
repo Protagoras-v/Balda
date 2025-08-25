@@ -8,6 +8,7 @@
 #include "game_logic.h"
 #include "status_codes.h"
 #include "common.h"
+#include "ai.h"
 
 
 #define LEADERBOARD_SIZE 50
@@ -504,6 +505,11 @@ int main() {
 		return 1;
 	}
 
+	AIState* state = ai_state_init();
+	if (state == NULL) {
+		return 1;
+	}
+
 	//game_set_max_time_waiting(settings, 100);
 	//game_set_difficulty(settings, 2);
 	//game_set_first_player(settings, 2);
@@ -512,14 +518,64 @@ int main() {
 
 	bool f = 1;
 	while (f) {
-		char cmd[100] = { 0 };
-		char* n;
+		//AI
+		if (game != NULL && game_get_player_id(game) == 2) {
+			if (!ai_status(state)) {
+				ai_start_turn(game, state, dict);
+			}
+			//if already started
+			else {
+				if (ai_need_additional_time(state)) {
+					int reply = 0;
+					printf("Компьютер не успел найти слово, хотите дать ему еще времени?\n1-да, 0 - нет\n");
+					scanf("%d", &reply);
+					clear_input_buffer();
+					if (reply == 1) {
+						//let it be default time_limit
+						SetEvent(ai_get_handle(state));
+					}
+					else {
+						//ask name if player wins and close game
+						int id = 0;
+						game_get_winner(game, &id);
 
-		fgets(cmd, sizeof(cmd), stdin);
-		n = strchr(cmd, '\n');
-		if (n != NULL) *n = '\0';
+						//ask player`s name for leaderboard
+						if (id == 1 && game_is_enough_score_for_lb(game, lb)) {
+							char name[255];
 
-		f = parse_command(dict, settings, &game, lb, cmd);
+							printf("Введите свое имя\n");
+							scanf("%s", name);
+							clear_input_buffer();
+							char* t = strchr(name, '\n');
+							if (t != NULL) *t = '\0';
+
+							code = game_add_into_leaderboard(lb, game, name);
+							check_code(code);
+						}
+
+						game_destroy(game);
+					}
+				}
+				else if (ai_word_founded(state)) {
+					game_set_move(game, ai_get_move(state));
+					code = game_confirm_move(game, dict);
+				}
+				else {
+					printf("Процент выполнения - %d\n", ai_get_percentage(state));
+				}
+			}
+		}
+		//PLAYER
+		else {
+			char cmd[100] = { 0 };
+			char* n;
+
+			fgets(cmd, sizeof(cmd), stdin);
+			n = strchr(cmd, '\n');
+			if (n != NULL) *n = '\0';
+
+			f = parse_command(dict, settings, &game, lb, cmd);
+		}
 	}
 
 	dict_destroy(dict);

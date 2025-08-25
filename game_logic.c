@@ -10,7 +10,7 @@
 
 
 #define LEADERBOARD_SIZE 50
-#define MAX_WORD_LEN 100
+#define MAX_WORD_LEN 26
 #define MIN_WORD_LEN 3
 
 #define FIELD_SIZE 5
@@ -226,32 +226,6 @@ static bool is_cell_in_word(WordCell word[MAX_WORD_LEN], int word_len, int y, in
 	return 0;
 }
 
-static bool is_word_used(Game* game, char* buffer) {
-	//player 1
-	PlayerWords p1 = game->player1_words;
-	PlayerWords p2 = game->player2_words;
-
-	for (int i = 0; i < p1.count; i++) {
-		if (strcmp(p1.words[i], buffer) == 0) {
-			return 1;
-		}
-	}
-	for (int i = 0; i < p2.count; i++) {
-		if (strcmp(p2.words[i], buffer) == 0) {
-			return 1;
-		}
-	}
-	return 0;
-}
-
-static void WordCell_to_char(WordCell source[], char dest[], int word_len) {
-	int i = 0;
-	while (i < word_len) {
-		dest[i] = source[i++].letter;
-	}
-	dest[i] = '\0';
-}
-
 
 static StatusCode clear_word_selection(Move* move) {
 	if (move->word_len == 0) {
@@ -290,7 +264,7 @@ static StatusCode add_player_word(PlayerWords* p, char* word) {
 }
 
 
-int part_quick_sort(User* arr, int l, int r) {
+static int part_quick_sort(User* arr, int l, int r) {
 	int pivot = arr[(l + r) / 2].score;
 	while (l <= r) {
 		while (arr[l].score > pivot) l++;
@@ -374,6 +348,24 @@ bool is_cell_coordinates_valid(GameField* field, int y, int x) {
 		return 0;
 	}
 	return 1;
+}
+
+bool is_word_used(Game* game, char* buffer) {
+	//player 1
+	PlayerWords p1 = game->player1_words;
+	PlayerWords p2 = game->player2_words;
+
+	for (int i = 0; i < p1.count; i++) {
+		if (strcmp(p1.words[i], buffer) == 0) {
+			return 1;
+		}
+	}
+	for (int i = 0; i < p2.count; i++) {
+		if (strcmp(p2.words[i], buffer) == 0) {
+			return 1;
+		}
+	}
+	return 0;
 }
 
 
@@ -784,6 +776,20 @@ Game* game_make_copy(Game* game) {
 	return copy;
 }
 
+//function for applying ai move
+StatusCode game_set_move(Game* game, Move* move) {
+	if (game == NULL) return ERROR_NULL_POINTER;
+	game->current_move.letter = move->letter;
+	game->current_move.y = move->y;
+	game->current_move.x = move->x;
+	game->current_move.word_len = move->word_len;
+	game->current_move.score = move->score;
+	for (int i = 0; i < move->word_len; i++) {
+		game->current_move.word[i] = move->word[i];
+	}
+	return SUCCESS;
+}
+
 
 //---------------------------------
 //---------------GET---------------
@@ -800,12 +806,6 @@ StatusCode game_get_cell(Game* game, int x, int y, unsigned char* res) {
 GameField* game_get_field(Game* game) {
 	if (game == NULL) return NULL;
 	return game->field;
-}
-
-StatusCode game_get_player_id(Game* game, int* id) {
-	if (game == NULL) return ERROR_NULL_POINTER;
-	*id = game->current_player;
-	return SUCCESS;
 }
 
 StatusCode game_get_score(Game* game, int id, int* score) {
@@ -864,6 +864,10 @@ StatusCode game_get_leaderboard(Leaderboard* lb, char usernames[], int scores[],
 	}
 	*size = lb->count;
 	return SUCCESS;
+}
+
+int game_get_player_id(Game* game) {
+	return game->current_player;
 }
 
 int game_get_difficulty(Game* game) {
