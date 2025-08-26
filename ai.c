@@ -22,7 +22,7 @@ struct AIState {
 	volatile unsigned char is_computation_complete;
 	volatile unsigned char is_started ; // has the move already started 
 	volatile unsigned char give_up;
-	volatile unsigned char percentage ;
+	volatile unsigned char percentage;
 
 	HANDLE additional_time_event;
 };
@@ -240,8 +240,8 @@ static void ai_easy(Dictionary* dict, Game* game_copy, AIState* state) {
 		}
 	}
 	int total_combinations = count * 33;
+	int operations = 0;
 	//try all candidates
-	//Sleep(3);
 	for (int i = 0; i < count; i++) {
 		for (int let = 0; let < 33; let++) {
 			//progress
@@ -275,21 +275,19 @@ static void ai_easy(Dictionary* dict, Game* game_copy, AIState* state) {
 			field->grid[y][x].letter = alphabet[let];
 
 			int res = easy_found(state, dict, field, game_copy, y, x, &path, &counter);
-			//printf("%d\n", res);
 			if (res) {
 				state->best_move.letter = alphabet[let];
 				state->best_move.y = y;
 				state->best_move.x = x;
 				state->best_move.word_len = path.len;
-				for (int i = 0; i < path.len; i++) {
-					state->best_move.word[i] = path.cells[i];
+				for (int j = 0; j < path.len; j++) {
+					state->best_move.word[j] = path.cells[j];
 				}
 				state->best_move.score += path.len;
 
 				state->is_move_found = 1;
 				state->percentage = 100;
 				state->is_computation_complete = 1;
-				state->is_started = 0;
 				return;
 			}
 			else if (res == 0) {
@@ -303,6 +301,7 @@ static void ai_easy(Dictionary* dict, Game* game_copy, AIState* state) {
 			}
 		}
 	}
+	state->give_up = 1;
 	printf("No words\n");
 }
 
@@ -379,6 +378,8 @@ AIState* ai_state_init() {
 		return NULL;
 	}
 
+	fprintf(stderr, "INIT STATE\n");
+
 	state->additional_time_event = CreateEvent(NULL, FALSE, FALSE, NULL); // event for thread waiting
 	state->percentage = 0;
 	state->is_move_found = 0;
@@ -430,9 +431,8 @@ bool ai_word_founded(AIState* state) {
 	return state->is_computation_complete && state->is_move_found;
 }
 
-int ai_get_percentage(AIState* state) {
+unsigned char ai_get_percentage(AIState* state) {
 	if (state == NULL) return -1;
-	MemoryBarrier();
 	return state->percentage;
 }
 

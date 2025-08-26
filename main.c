@@ -564,6 +564,7 @@ int main() {
 					game_get_word(game, ai_word);
 					code = game_confirm_move(game, dict);
 					if (code == SUCCESS) {
+						if (prev_procent != 100) printf("Процент выполнения - 100\n");
 						printf("Слово, составленное компьютером: %s\n", ai_word);
 						ai_set_stop(state);
 					}
@@ -573,10 +574,10 @@ int main() {
 					}
 				}
 				else {
-					int new_procent = ai_get_percentage(state);
+					unsigned char new_procent = ai_get_percentage(state);
 					if (new_procent != prev_procent) {
 						printf("Процент выполнения - %d\n", new_procent);
-						fflush(stdout);
+						//fflush(stdout);
 					}		
 					prev_procent = new_procent;
 				}

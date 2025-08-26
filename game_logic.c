@@ -451,7 +451,7 @@ StatusCode game_try_place_letter(Game* game, int y,int x, char letter) {
 
 	else {
 		Move* move = &game->current_move;
-		move->letter = letter;
+		move->letter = to_lower(letter);
 		move->x = x;
 		move->y = y;
 		field_set_letter(game->field, y, x, letter, game->current_player);
