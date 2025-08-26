@@ -1,6 +1,7 @@
 #pragma once
 #include <process.h>
 #include "game_logic.h"
+#include "common.h"
 
 typedef struct AIState AIState;
 
@@ -8,7 +9,7 @@ AIState* ai_state_init();
 
 StatusCode ai_start_turn(Game* game, AIState* state, Dictionary* dict);
 
-StatusCode ai_set_start(AIState* state, bool n);
+StatusCode ai_set_stop(AIState* state);
 
 StatusCode ai_give_additional_time(AIState* state, bool n, int additional_time);
 

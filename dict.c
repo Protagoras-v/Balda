@@ -35,6 +35,7 @@ static int char_to_index(unsigned char letter) {
 	else if (letter == 184) { //ё
 		return 6;
 	}
+	return 0;
 }
 
 static TrieNode* create_node() {
@@ -49,7 +50,7 @@ static TrieNode* create_node() {
 
 static void insert_word_into_trie(TrieNode* root, const char* word) {
 	TrieNode* current = root;
-	int wLen = strlen(word);
+	size_t wLen = strlen(word);
 
 	for (int i = 0; word[i]; i++) {
 		int index = char_to_index(word[i]);
@@ -90,9 +91,9 @@ static bool is_word_in_trie(TrieNode* root, const char* word) {
 	return 0;
 }
 
-static void insert_into_reverse_trie(TrieNode* root, const char* word) {
+static void insert_into_reverse_trie(TrieNode* root, char* word) {
+	size_t len = strlen(word);
 	reverse_word(word);
-	int len = word;
 	for (int i = 0; i < len; i++) {
 		insert_word_into_trie(root, &word[i]); //all possible prefixes (balda: adlab dlab lab ab b)
 	}
@@ -100,7 +101,7 @@ static void insert_into_reverse_trie(TrieNode* root, const char* word) {
 
 static bool prefix_exists(TrieNode* root, const char* prefix) {
 	TrieNode* current = root;
-	int len = strlen(prefix);
+	size_t len = strlen(prefix);
 	for (int i = 0; i < len; i++) {
 		int index = char_to_index(prefix[i]);
 		if (current->children[index] == NULL) {
@@ -118,8 +119,6 @@ Dictionary* dict_init() {
 		fprintf(stderr, "Не удалось открыть файл %s\n", FILE_NAME);
 		return NULL;
 	}
-
-	printf("%d\n", sizeof(TrieNode));
 
 	Dictionary* dict = malloc(sizeof(Dictionary));
 	if (dict == NULL) {
@@ -174,7 +173,7 @@ void dict_destroy(Dictionary* dict) {
 
 bool dict_word_exists(Dictionary* dict, const char* word) {
 	if (!is_word_valid(word)) {
-		printf("Слово %s содержит недопустимые символы!\n", word);
+		printf("DIR Слово %s содержит недопустимые символы!\n", word);
 		return 0;
 	}
 	return is_word_in_trie(dict->root, word);
@@ -219,6 +218,9 @@ StatusCode dict_get_starting_word(Dictionary* dict, char st_word[]) {
 		if ((buffer[5] == '\n' || buffer[5] == '\0') && buffer[4] != '\n' && buffer[4] != '\0') {
 			buffer[5] = '\0';
 			candidates[count] = malloc(sizeof(char) * 6);
+			if (candidates[count] == NULL) {
+				return ERROR_OUT_OF_MEMORY;
+			}
 			strncpy(candidates[count++], buffer, 6);
 		}	
 	}
@@ -252,7 +254,7 @@ bool dict_prefix_exists(Dictionary* dict, char* prefix) {
 
 bool dict_reverse_word_exists(Dictionary* dict, char* word) {
 	if (!is_word_valid(word)) {
-		printf("Слово %s содержит недопустимые символы!\n", word);
+		printf(" REV Слово %s содержит недопустимые символы!\n", word);
 		return 0;
 	}
 	return is_word_in_trie(dict->rootRev, word);

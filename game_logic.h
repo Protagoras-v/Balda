@@ -1,20 +1,34 @@
 #pragma once
 #include <stdbool.h>
 #include "status_codes.h"
-
+#include "common.h"
 #include "dict.h"
 
-#define MAX_WORD_LEN 100
+#define MAX_WORD_LEN 26
 
-typedef struct WordCell WordCell;
+typedef struct Cell {
+	char letter;
+	unsigned char player_id : 2; // 0 - клетка пустая, 1 - игрок, 2 - компьютер
+	unsigned char new : 1;
+} Cell;
 
-typedef struct Move Move;
+typedef struct GameField {
+	Cell** grid;
+	unsigned char height : 4;
+	unsigned char width : 4;
+} GameField;
+
+typedef struct Move {
+	unsigned char y : 4;
+	unsigned char x : 4;
+	char letter;
+	WordCell word[MAX_WORD_LEN];
+	unsigned char word_len;
+	int score;
+} Move;
+
 
 typedef struct Leaderboard Leaderboard;
-
-typedef struct Cell Cell;
-
-typedef struct GameField GameField;
 
 typedef struct GameSettings GameSettings;
 
@@ -23,7 +37,7 @@ typedef struct Game Game;
 
 Game* game_create(GameSettings* settings, Dictionary* dict);
 
-void game_destroy(Game* game);
+void game_destroy(Game** game_);
 
 StatusCode game_load(Game* game, const char* filename);
 

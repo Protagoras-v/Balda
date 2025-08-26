@@ -156,6 +156,7 @@ int parse_command(Dictionary* dict, GameSettings* settings, Game** game, Leaderb
 				fprintf(stderr, "Ошибка при выделении памяти для *game\n");
 				return 0;
 			}
+			print_field(*game);
 		}
 		else {
 			printf("Игра уже запущена\n");
@@ -207,8 +208,7 @@ int parse_command(Dictionary* dict, GameSettings* settings, Game** game, Leaderb
 	else if (strcmp(ptr, "end_game") == 0) {
 		if (*game != NULL) {
 			//only player_1 can end game (because 2 is an AI)
-			int id = 0;
-			game_get_player_id(*game, &id);
+			int id = game_get_player_id(*game);
 
 			if (id == 1) {
 				int d = 0;
@@ -254,14 +254,14 @@ int parse_command(Dictionary* dict, GameSettings* settings, Game** game, Leaderb
 		}
 		else printf("Игра не запущена!\n");
 	}
-	else if (strcmp(ptr, "confirm_move") == 0) {
+	else if (strcmp(ptr, "confirm") == 0) {
 		if (*game != NULL) {
 			if (!f) {
 				code = game_confirm_move(*game, dict);
 				if (code == GAME_INVALID_WORD) {
 					int r = -1;
 
-					char* word[MAX_WORD_LEN];
+					char word[MAX_WORD_LEN];
 					game_get_word(*game, word);
 
 					while (r != 1 && r != 0) {
@@ -375,7 +375,7 @@ int parse_command(Dictionary* dict, GameSettings* settings, Game** game, Leaderb
 			}
 			check_code(code);
 
-			char* buffer[MAX_WORD_LEN];
+			char buffer[MAX_WORD_LEN];
 			code = game_get_word(*game, buffer);
 			if (code == GAME_WORD_EMPTY) {
 				printf("Вы еще не доавили ни одной буквы в слово!\n");
@@ -405,7 +405,7 @@ int parse_command(Dictionary* dict, GameSettings* settings, Game** game, Leaderb
 	}
 	else if (strcmp(ptr, "print_word") == 0) {
 		if (*game != NULL) {
-			char* buffer[MAX_WORD_LEN];
+			char buffer[MAX_WORD_LEN];
 			code = game_get_word(*game, buffer);
 			if (code == GAME_WORD_EMPTY) {
 				printf("Вы еще не доавили ни одной буквы в слово!\n");
@@ -460,7 +460,7 @@ int parse_command(Dictionary* dict, GameSettings* settings, Game** game, Leaderb
 			"  end_game                      - закончить игру\n"
 			"  letter <y> <x> <буква>        - поставить букву на поле\n"
 			"  add <y> <x>                   - добавить клетку в составляемое слово\n"
-			"  confirm_move                  - подтвердить ход\n"
+			"  confirm                  - подтвердить ход\n"
 			"  cancel_selection              - отменить выбор слова\n"
 			"  remove_letter                 - убрать поставленную букву\n"
 			"  print                         - показать поле\n"
@@ -515,6 +515,8 @@ int main() {
 	//game_set_first_player(settings, 2);
 	//
 	//print_settings(settings);
+	
+	int prev_procent = 0;
 
 	bool f = 1;
 	while (f) {
@@ -553,15 +555,30 @@ int main() {
 							check_code(code);
 						}
 
-						game_destroy(game);
+						game_destroy(&game);
 					}
 				}
 				else if (ai_word_founded(state)) {
+					char ai_word[MAX_WORD_LEN + 1];
 					game_set_move(game, ai_get_move(state));
+					game_get_word(game, ai_word);
 					code = game_confirm_move(game, dict);
+					if (code == SUCCESS) {
+						printf("Слово, составленное компьютером: %s\n", ai_word);
+						ai_set_stop(state);
+					}
+					else {
+						fprintf(stderr, "Ошибка при получении слова от компьютера\n");
+						check_code(code);
+					}
 				}
 				else {
-					printf("Процент выполнения - %d\n", ai_get_percentage(state));
+					int new_procent = ai_get_percentage(state);
+					if (new_procent != prev_procent) {
+						printf("Процент выполнения - %d\n", new_procent);
+						fflush(stdout);
+					}		
+					prev_procent = new_procent;
 				}
 			}
 		}
@@ -579,7 +596,7 @@ int main() {
 	}
 
 	dict_destroy(dict);
-	game_destroy(game);
+	game_destroy(&game);
 	game_leaderboard_destroy(lb);
 	free(settings);
 	return 0;

@@ -33,33 +33,6 @@ typedef struct PlayerWords {
 	int count;
 } PlayerWords;
 
-struct Cell {
-	char letter;
-	unsigned int player_id : 2; // 0 - клетка пустая, 1 - игрок, 2 - компьютер
-	unsigned int new : 1;
-};
-
-struct GameField {
-	Cell** grid;
-	int width;
-	int height;
-};
-
-struct WordCell {
-	int y : 5;
-	int x : 5;
-	char letter;
-};
-
-struct Move {
-	int y : 5;
-	int x : 5;
-	char letter;
-	WordCell word[MAX_WORD_LEN];
-	int word_len;
-	int score;
-};
-
 struct Leaderboard {
 	int count;
 	User users[LEADERBOARD_SIZE];
@@ -77,7 +50,7 @@ struct Game {
 	Move current_move;
 	unsigned int current_player : 2; //0 isnt used, because 0 is an empty cell
 	int scores[2]; 
-	unsigned int game_finished : 1;
+	unsigned char game_finished : 1;
 
 	PlayerWords player1_words;
 	PlayerWords player2_words;
@@ -149,15 +122,15 @@ static GameField* field_make_copy(GameField* field) {
 		fprintf(stderr, "Ошибка при выделении памяти для GameField\n");
 		return NULL;
 	}
-	copy->grid = malloc(FIELD_SIZE * sizeof(Cell*));
+	copy->grid = malloc(field->height * sizeof(Cell*));
 	if (copy->grid == NULL) {
 		fprintf(stderr, "Ошибка при выделении памяти для field->grid\n");
 		free(copy);
 		return NULL;
 	}
 
-	for (int i = 0; i < FIELD_SIZE; i++) {
-		copy->grid[i] = malloc(FIELD_SIZE * sizeof(Cell));
+	for (int i = 0; i < field->height; i++) {
+		copy->grid[i] = malloc(field->width * sizeof(Cell));
 
 		if (copy->grid[i] == NULL) {
 			fprintf(stderr, "Ошибка при выделении памяти для field->grid[%d]\n", i);
@@ -169,14 +142,15 @@ static GameField* field_make_copy(GameField* field) {
 			return NULL;
 		}
 
-		for (int j = 0; j < FIELD_SIZE; j++) {
+		for (int j = 0; j < field->width; j++) {
 			copy->grid[i][j].letter = field->grid[i][j].letter;
 			copy->grid[i][j].player_id = field->grid[i][j].player_id;
 		}
 	}
 
-	copy->height = FIELD_SIZE;
-	copy->width = FIELD_SIZE;
+	copy->height = field->height;
+	copy->width = field->width;
+
 
 	return copy;
 }
@@ -243,7 +217,7 @@ static StatusCode clear_word_selection(Move* move) {
 
 //add word to the list of player`s words
 static StatusCode add_player_word(PlayerWords* p, char* word) {
-	int size = strlen(word) + 1;
+	size_t size = strlen(word) + 1;
 	p->words[p->count] = malloc(sizeof(char) * size);
 	if (p->words[p->count] == NULL) {
 		return ERROR_OUT_OF_MEMORY;
@@ -303,7 +277,7 @@ static void leaderboard_add_new(Leaderboard* lb, const char* user, int score) {
 		memcpy(lb->users[lb->count - 1].username, user, strlen(user) + 1);
 	}
 	else {
-		int len = strlen(user) + 1;
+		size_t len = strlen(user) + 1;
 		lb->users[lb->count].username = malloc(len);
 		if (lb->users[lb->count].username == NULL) {
 			fprintf(stderr, "Ошибка при выделении памяти в leaderboard_add_new()\n");
@@ -351,21 +325,36 @@ bool is_cell_coordinates_valid(GameField* field, int y, int x) {
 }
 
 bool is_word_used(Game* game, char* buffer) {
-	//player 1
 	PlayerWords p1 = game->player1_words;
 	PlayerWords p2 = game->player2_words;
 
 	for (int i = 0; i < p1.count; i++) {
 		if (strcmp(p1.words[i], buffer) == 0) {
-			return 1;
+			return true;
 		}
 	}
 	for (int i = 0; i < p2.count; i++) {
 		if (strcmp(p2.words[i], buffer) == 0) {
-			return 1;
+			return true;
 		}
 	}
-	return 0;
+
+	if (game->field->width >= MAX_WORD_LEN) {
+		fprintf(stderr, "Длина поля больше, чем максимальный размер слова!\n");
+		return false;
+	}
+	//also check the initial word
+	char st_word[MAX_WORD_LEN + 1];
+	int midY = game->field->height / 2;
+	int x = 0;
+	while (x < game->field->width) {
+		st_word[x] = game->field->grid[midY][x++].letter;
+	}
+	st_word[x] = '\0';
+	if (strcmp(st_word, buffer) == 0) {
+		return true;
+	}
+	return false;
 }
 
 
@@ -427,6 +416,8 @@ Game* game_create(GameSettings* settings, Dictionary* dict) {
 		game->current_move.word[i].letter = '\0';
 	}
 	game->current_move.word_len = 0;
+
+	return game;
 }
 
 void game_destroy(Game** game_) {
@@ -640,7 +631,7 @@ Leaderboard* game_leaderboard_init() {
 				continue;
 			}
 
-			int username_len = strlen(buffer);
+			size_t username_len = strlen(buffer);
 			lb->users[lb->count].username = malloc(username_len + 1); //the buffer pointer contains only the first part (username), because gap was replaced by '\0'
 			if (lb->users[lb->count].username == NULL) {
 				fclose(file);
@@ -734,7 +725,7 @@ Game* game_make_copy(Game* game) {
 	copy->player1_words.count = game->player1_words.count;
 	copy->player1_words.words = malloc(sizeof(char*) * copy->player1_words.capacity);
 	for (int i = 0; i < copy->player1_words.count; i++) {
-		int len = strlen(game->player1_words.words[i]) + 1;
+		size_t len = strlen(game->player1_words.words[i]) + 1;
 		copy->player1_words.words[i] = malloc(sizeof(char) * len);
 		//free all words which were already allocated 
 		if (copy->player1_words.words[i] == NULL) {
@@ -755,6 +746,19 @@ Game* game_make_copy(Game* game) {
 	copy->player2_words.capacity = game->player2_words.capacity;
 	copy->player2_words.count = game->player2_words.count;
 	copy->player2_words.words = malloc(sizeof(char*) * copy->player2_words.capacity);
+	if (copy->player2_words.words == NULL) {
+		size_t i = copy->player1_words.count;
+		while (i > 0) {
+			i--;
+			free(copy->player1_words.words[i]);
+		}
+		free(copy->player1_words.words);
+		free(copy->settings);
+		free(copy->field);
+		free(copy);
+		fprintf(stderr, "Не удалось создать копию Game (ошибка при выделении памяти)\n");
+		return NULL;
+	}
 	for (int i = 0; i < copy->player2_words.count; i++) {
 		int len = strlen(game->player2_words.words[i]) + 1;
 		copy->player2_words.words[i] = malloc(sizeof(char) * len);
@@ -764,6 +768,12 @@ Game* game_make_copy(Game* game) {
 				i--;
 				free(copy->player2_words.words[i]);
 			}
+			i = copy->player1_words.count;
+			while (i > 0) {
+				i--;
+				free(copy->player1_words.words[i]);
+			}
+			free(copy->player1_words.words);
 			free(copy->player2_words.words);
 			free(copy->settings);
 			free(copy);
@@ -782,6 +792,7 @@ StatusCode game_set_move(Game* game, Move* move) {
 	game->current_move.letter = move->letter;
 	game->current_move.y = move->y;
 	game->current_move.x = move->x;
+	field_set_letter(game->field, move->y, move->x, move->letter, 2); //2 because its only for ai
 	game->current_move.word_len = move->word_len;
 	game->current_move.score = move->score;
 	for (int i = 0; i < move->word_len; i++) {
@@ -832,7 +843,7 @@ StatusCode game_get_player_words(Game* game, int player_id, char*** words, int* 
 	return GAME_INVALID_ID;
 }
 
-StatusCode game_get_word(Game* game, char* word) {
+StatusCode game_get_word(Game* game, char word[]) {
 	if (game == NULL) return ERROR_NULL_POINTER;
 
 	Move* move = &game->current_move;
@@ -859,7 +870,7 @@ StatusCode game_get_winner(Game* game, int* winner_id) {
 StatusCode game_get_leaderboard(Leaderboard* lb, char usernames[], int scores[], int* size) {
 	if (lb == NULL) return ERROR_NULL_POINTER;
 	for (int i = 0; i < lb->count && i < LEADERBOARD_SIZE; i++) {
-		strncpy(usernames[i], lb->users[i].username, strlen(lb->users[i].username));
+		strncpy(&usernames[i], lb->users[i].username, strlen(lb->users[i].username));
 		scores[i] = lb->users[i].score;
 	}
 	*size = lb->count;
@@ -1125,10 +1136,10 @@ void print_field(Game* game) {
 		for (int j = 0; j < FIELD_SIZE; j++) {
 			char c = game->field->grid[i][j].letter;
 			if (c == 0) {
-				printf("[ ]");
+				fprintf(stderr, "[ ]");
 			}
 			else {
-				printf("[%c]", c);
+				fprintf(stderr, "[%c]", c);
 			}
 		}
 		printf("\n");
