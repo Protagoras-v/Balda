@@ -285,12 +285,15 @@ static void ai_easy(Dictionary* dict, Game* game_copy, AIState* state) {
 				state->best_move.word_len = path.len;
 				for (int j = 0; j < path.len; j++) {
 					state->best_move.word[j] = path.cells[j];
+					//fprintf(stderr, "%c ", path.cells[j].letter);
 				}
+				//fprintf(stderr, "\n");
 				state->best_move.score += path.len;
 
 				state->is_move_found = 1;
 				state->percentage = 100;
 				state->is_computation_complete = 1;
+
 				return;
 			}
 			else if (res == 0) {

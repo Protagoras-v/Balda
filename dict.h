@@ -5,7 +5,7 @@
 //typedef struct TrieNode TrieNode;
 typedef struct Dictionary Dictionary;
 
-Dictionary* dict_init();
+Dictionary* dict_init(bool alerts);
 
 void dict_destroy(Dictionary* dict);
 

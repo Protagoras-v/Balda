@@ -12,7 +12,7 @@
 
 
 #define LEADERBOARD_SIZE 50
-#define MAX_WORD_LEN 100
+#define MAX_WORD_LEN 26
 #define MIN_WORD_LEN 3
 
 
@@ -122,10 +122,11 @@ int parse_command(Dictionary* dict, GameSettings* settings, Game** game, Leaderb
 	*s++ = '\0';
 	if (strcmp(ptr, "print_leaderboard") == 0) {
 		int scores[LEADERBOARD_SIZE];
-		char usernames[LEADERBOARD_SIZE];
+		char usernames[LEADERBOARD_SIZE][MAX_WORD_LEN + 1];
 		int size = 0;
-		game_get_leaderboard(lb, usernames, scores, &size);
+		code = game_get_leaderboard(lb, usernames, scores, &size);
 
+		check_code(code);
 		for (int i = 0; i < size; i++) {
 			printf("%s %d\n", usernames[i], scores[i]);
 		}
@@ -495,7 +496,7 @@ int main() {
 	if (settings == NULL) {
 		return 1;
 	}
-	Dictionary* dict = dict_init("dictionary.txt");
+	Dictionary* dict = dict_init(false);
 	if (dict == NULL) {
 		return 1;
 	}

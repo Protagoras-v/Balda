@@ -113,7 +113,7 @@ static bool prefix_exists(TrieNode* root, const char* prefix) {
 }
 
 
-Dictionary* dict_init() {
+Dictionary* dict_init(bool alerts) {
 	FILE* file = fopen(FILE_NAME, "r+");
 	if (file == NULL) {
 		fprintf(stderr, "Не удалось открыть файл %s\n", FILE_NAME);
@@ -156,7 +156,7 @@ Dictionary* dict_init() {
 			dict->count++;
 		}
 		else {
-			printf("Слово %s было пропущено при инициализации словаря, т.к. содержит недопустимые символы\n", buffer);
+			if (alerts) printf("Слово %s было пропущено при инициализации словаря, т.к. содержит недопустимые символы\n", buffer);
 			continue;
 		}
 	}

@@ -11,7 +11,7 @@
 
 #define LEADERBOARD_SIZE 50
 #define MAX_WORD_LEN 26
-#define MIN_WORD_LEN 3
+#define MIN_WORD_LEN 2
 
 #define FIELD_SIZE 5
 
@@ -24,6 +24,7 @@
 
 typedef struct User {
 	char* username;
+	int username_len;
 	int score;
 } User;
 
@@ -247,6 +248,12 @@ static int part_quick_sort(User* arr, int l, int r) {
 			int temp = arr[l].score;
 			arr[l].score = arr[r].score;
 			arr[r].score = temp;
+
+			char buffer[MAX_WORD_LEN + 1];
+			strcpy(buffer, arr[l].username);
+			strcpy(arr[l].username, arr[r].username);
+			strcpy(arr[r].username, buffer);
+
 			l++;
 			r--;
 		}
@@ -275,6 +282,7 @@ static void leaderboard_add_new(Leaderboard* lb, const char* user, int score) {
 	if (lb->count == LEADERBOARD_SIZE) {
 		//rewrite 50th place
 		memcpy(lb->users[lb->count - 1].username, user, strlen(user) + 1);
+		lb->users[lb->count - 1].score = score;
 	}
 	else {
 		size_t len = strlen(user) + 1;
@@ -283,9 +291,10 @@ static void leaderboard_add_new(Leaderboard* lb, const char* user, int score) {
 			fprintf(stderr, "Ошибка при выделении памяти в leaderboard_add_new()\n");
 			return;
 		}
-		memcpy(lb->users[lb->count++].username, user, len);
+		memcpy(lb->users[lb->count].username, user, len);
+		lb->users[lb->count].score = score;
+		lb->count++;
 	}
-	lb->users[lb->count - 1].score = score;
 }
 
 
@@ -454,7 +463,7 @@ StatusCode game_try_place_letter(Game* game, int y,int x, char letter) {
 		move->letter = to_lower(letter);
 		move->x = x;
 		move->y = y;
-		field_set_letter(game->field, y, x, letter, game->current_player);
+		field_set_letter(game->field, move->y, move->x, move->letter, game->current_player);
 		return SUCCESS;
 	}
 }
@@ -544,6 +553,7 @@ StatusCode game_confirm_move(Game* game, Dictionary* dict) {
 	if (dict_word_exists(dict, buffer)) {
 		//apply changes
 		game->scores[game->current_player - 1] = move->score;
+		printf("New score: %d\n", game->scores[game->current_player - 1]);
 		field_confirm_letter(game->field, move->y, move->x);
 
 		clear_word_selection(move);
@@ -642,6 +652,7 @@ Leaderboard* game_leaderboard_init() {
 
 			memcpy(lb->users[lb->count].username, buffer, username_len + 1);
 			lb->users[lb->count].score = score;
+			lb->users[lb->count].username_len = username_len;
 			lb->count++;
 		}
 	}
@@ -666,7 +677,7 @@ StatusCode game_add_into_leaderboard(Leaderboard* lb, Game* game, const char* us
 
 	int score = game->scores[0]; //0 because its a human and 1 is ai (obviously only human can be added into lb)
 	if (!game_is_enough_score_for_lb(game, lb)) return GAME_LOW_SCORE;
-	leaderboard_add_new(lb, username, game->scores[0]);
+	leaderboard_add_new(lb, username, score);
 	leaderboard_sort(lb);
 
 	//rewrite entire file with a sorted leaderboard
@@ -867,10 +878,10 @@ StatusCode game_get_winner(Game* game, int* winner_id) {
 	return SUCCESS;
 }
 
-StatusCode game_get_leaderboard(Leaderboard* lb, char usernames[], int scores[], int* size) {
+StatusCode game_get_leaderboard(Leaderboard* lb, char usernames[][MAX_WORD_LEN + 1], int scores[], int* size) {
 	if (lb == NULL) return ERROR_NULL_POINTER;
 	for (int i = 0; i < lb->count && i < LEADERBOARD_SIZE; i++) {
-		strncpy(&usernames[i], lb->users[i].username, strlen(lb->users[i].username));
+		strcpy(usernames[i], lb->users[i].username);
 		scores[i] = lb->users[i].score;
 	}
 	*size = lb->count;

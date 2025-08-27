@@ -85,7 +85,7 @@ StatusCode game_get_winner(Game* game, int* winner_id);
 //returns current word
 StatusCode game_get_word(Game* game, char* word);
 
-StatusCode game_get_leaderboard(Leaderboard* lb, char usernames[], int scores[], int *size);
+StatusCode game_get_leaderboard(Leaderboard* lb, char usernames[][MAX_WORD_LEN + 1], int scores[], int* size);
 
 bool game_is_enough_score_for_lb(Game* game, Leaderboard* lb);
 
