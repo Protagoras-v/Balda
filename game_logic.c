@@ -684,7 +684,7 @@ bool game_is_enough_score_for_lb(Game* game, Leaderboard* lb) {
 	if (lb->count < LEADERBOARD_SIZE)
 		return true;
 	else {
-		//if its higher than 50-th place
+		//if its higher than last place
 		if (game->scores[0] > lb->users[lb->count - 1].score) {
 			return true;
 		}

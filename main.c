@@ -573,6 +573,28 @@ int main() {
 						check_code(code);
 					}
 				}
+				else if (ai_gave_up(state)) {
+					//game ended
+					printf("Компьютер сдался\n");
+					if (game_is_enough_score_for_lb(game, lb)) {
+						//ask player`s name for leaderbord
+						char name[255];
+
+						printf("Введите свое имя\n");
+						scanf("%s", name);
+						clear_input_buffer();
+						char* t = strchr(name, '\n');
+						if (t != NULL) *t = '\0';
+
+						code = game_add_into_leaderboard(lb, game, name);
+						check_code(code);
+					}
+					else {
+						printf("Вы не набрали достаточное количество очков для попадания в таблицу лидеров\n");
+					}
+					printf("Игра окончена\n");
+					game_destroy(&game);
+				}
 				else {
 					unsigned char new_procent = ai_get_percentage(state);
 					if (new_procent != prev_procent) {

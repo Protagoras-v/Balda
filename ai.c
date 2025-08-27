@@ -21,7 +21,7 @@ struct AIState {
 
 	volatile unsigned char is_computation_complete;
 	volatile unsigned char is_started ; // has the move already started 
-	volatile unsigned char give_up;
+	volatile unsigned char gave_up;
 	volatile unsigned char percentage;
 
 	HANDLE additional_time_event;
@@ -48,6 +48,9 @@ static void state_set(AIState* state, int score, int time_limit) {
 	state->is_move_found = 0;
 	state->percentage = 0;
 	state->time_limit = time_limit;
+	state->gave_up = 0;
+	state->is_additional_time = 0;
+	state->is_started = 1;
 
 	state->best_move.letter = '\0';
 	state->best_move.y = -1;
@@ -297,12 +300,13 @@ static void ai_easy(Dictionary* dict, Game* game_copy, AIState* state) {
 			else if (res == -1) {
 				//timeout and denied by user
 				printf("time_out\n");
+				state->gave_up = 1;
 				return;
 			}
 		}
 	}
-	state->give_up = 1;
-	printf("No words\n");
+	//if there are no words
+	state->gave_up = 1;
 }
 
 
@@ -386,6 +390,7 @@ AIState* ai_state_init() {
 	state->is_computation_complete = 1;
 	state->is_additional_time = 0;
 	state->is_started = 0;
+	state->gave_up = 0;
 
 	state->best_move.letter = '\0';
 	state->best_move.y = -1;
@@ -417,18 +422,35 @@ StatusCode ai_give_additional_time(AIState* state, bool n, int additional_time) 
 
 //true - started, false - stoped
 bool ai_status(AIState* state) {
-	if (state == NULL) return false;
+	if (state == NULL) {
+		fprintf(stderr, "ERROR state NULL\n");
+		return false;
+	}
 	return state->is_started;
 }
 
 bool ai_need_additional_time(AIState* state) {
-	if (state == NULL) return false;
+	if (state == NULL) {
+		fprintf(stderr, "ERROR state NULL\n");
+		return false;
+	}
 	return state->is_computation_complete && !state->is_move_found;
 }
 
 bool ai_word_founded(AIState* state) {
-	if (state == NULL) return false;
+	if (state == NULL) {
+		fprintf(stderr, "ERROR state NULL\n");
+		return false;
+	}
 	return state->is_computation_complete && state->is_move_found;
+}
+
+bool ai_gave_up(AIState* state) {
+	if (state == NULL) {
+		fprintf(stderr, "ERROR state NULL\n");
+		return false;
+	}
+	return state->gave_up;
 }
 
 unsigned char ai_get_percentage(AIState* state) {

@@ -20,6 +20,8 @@ bool ai_need_additional_time(AIState* state);
 
 bool ai_word_founded(AIState* state);
 
+bool ai_gave_up(AIState* state);
+
 unsigned char ai_get_percentage(AIState* state);
 
 HANDLE ai_get_handle(AIState* state);
