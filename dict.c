@@ -8,7 +8,7 @@
 #include "dict.h"
 #include "common.h"
 
-#define FILE_NAME "dictionary.txt"
+
 
 typedef struct TrieNode {
 	struct TrieNode* children[33];
@@ -202,9 +202,9 @@ StatusCode dict_add_word(Dictionary* dict, const char* word) {
 
 //since this operation executes once when the game is started, there is no problem reading file again
 StatusCode dict_get_starting_word(Dictionary* dict, char st_word[]) {
-	FILE* file = fopen(FILE_NAME, "r");
+	FILE* file = fopen(FILE_STARTING_WORDS, "r");
 	if (file == NULL) {
-		fprintf(stderr, "Не удалось открыть файл %s для выбора начального слова\n", FILE_NAME);
+		fprintf(stderr, "Не удалось открыть файл %s для выбора начального слова\n", FILE_STARTING_WORDS);
 		return ERROR_FILE_NOT__FOUND;
 	}
 

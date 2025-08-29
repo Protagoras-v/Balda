@@ -11,10 +11,6 @@
 #include "ai.h"
 
 
-#define LEADERBOARD_SIZE 50
-#define MAX_WORD_LEN 26
-#define MIN_WORD_LEN 3
-
 
 void check_code(StatusCode code) {
 	switch (code) {
@@ -341,7 +337,7 @@ int parse_command(Dictionary* dict, GameSettings* settings, Game** game, Leaderb
 	else if (strcmp(ptr, "add") == 0) {
 		if (*game != NULL) {
 			int y = 0, x = 0;
-			char* e1, * e2, * e3;
+			char* e1, * e2;
 
 			ptr = s;
 			while (*s != ' ' && *s != '\0') s++;
@@ -386,6 +382,26 @@ int parse_command(Dictionary* dict, GameSettings* settings, Game** game, Leaderb
 			}
 		}
 		else printf("Игра не запущена!\n");
+	}
+	else if (strcmp(ptr, "set_difficulty") == 0) {
+		int difficulty = 0;
+		char* e1;
+
+		ptr = s;
+		while (*s != ' ' && *s != '\0') s++;
+		if (s == ptr) {
+			printf("ошибка команды\n");
+			return 1;
+		}
+		*s++ = '\0';
+		difficulty = (int)strtol(ptr, &e1, 10);
+		if (*e1 != '\0') {
+			printf("ошибка команды\n");
+			return 1;
+		}
+
+		code = game_set_difficulty(settings, difficulty);
+		check_code(code);
 	}
 	else if (strcmp(ptr, "print") == 0) {
 		if (*game != NULL)
@@ -454,6 +470,7 @@ int parse_command(Dictionary* dict, GameSettings* settings, Game** game, Leaderb
 	else if (strcmp(ptr, "help") == 0) {
 		printf("Доступные команды:\n"
 			"  print_leaderboard             - таблица лидеров\n"
+			"  set_difficulty (0/1/2)        - выбор сложности\n"
 			"  add_into_lb                   - добавить в таблицу лидеров\n"
 			"  new_game                      - новая игра\n"
 			"  load_game                     - загрузить игру\n"
@@ -528,16 +545,44 @@ int main() {
 			}
 			//if already started
 			else {
-				if (ai_need_additional_time(state)) {
+				if (ai_gave_up(state)) {
+					//game ended
+					printf("Компьютер сдался\n");
+					if (game_is_enough_score_for_lb(game, lb)) {
+						//ask player`s name for leaderbord
+						char name[255];
+
+						printf("Введите свое имя\n");
+						scanf("%s", name);
+						clear_input_buffer();
+						char* t = strchr(name, '\n');
+						if (t != NULL) *t = '\0';
+
+						code = game_add_into_leaderboard(lb, game, name);
+						check_code(code);
+					}
+					else {
+						printf("Вы не набрали достаточное количество очков для попадания в таблицу лидеров\n");
+					}
+					ai_set_stop(state);
+					printf("Игра окончена\n");
+					game_destroy(&game);
+				}
+				else if (ai_need_additional_time(state)) {
 					int reply = 0;
 					printf("Компьютер не успел найти слово, хотите дать ему еще времени?\n1-да, 0 - нет\n");
 					scanf("%d", &reply);
 					clear_input_buffer();
 					if (reply == 1) {
 						//let it be default time_limit
+						ai_give_additional_time(state, true, game_get_time_limit(game));
 						SetEvent(ai_get_handle(state));
 					}
 					else {
+						ai_give_additional_time(state, false, game_get_time_limit(game));
+						ai_set_stop(state);
+						SetEvent(ai_get_handle(state));
+
 						//ask name if player wins and close game
 						int id = 0;
 						game_get_winner(game, &id);
@@ -572,36 +617,15 @@ int main() {
 					else {
 						fprintf(stderr, "Ошибка при получении слова от компьютера\n");
 						check_code(code);
+						f = 0;
 					}
-				}
-				else if (ai_gave_up(state)) {
-					//game ended
-					printf("Компьютер сдался\n");
-					if (game_is_enough_score_for_lb(game, lb)) {
-						//ask player`s name for leaderbord
-						char name[255];
-
-						printf("Введите свое имя\n");
-						scanf("%s", name);
-						clear_input_buffer();
-						char* t = strchr(name, '\n');
-						if (t != NULL) *t = '\0';
-
-						code = game_add_into_leaderboard(lb, game, name);
-						check_code(code);
-					}
-					else {
-						printf("Вы не набрали достаточное количество очков для попадания в таблицу лидеров\n");
-					}
-					printf("Игра окончена\n");
-					game_destroy(&game);
 				}
 				else {
 					unsigned char new_procent = ai_get_percentage(state);
-					if (new_procent != prev_procent) {
-						printf("Процент выполнения - %d\n", new_procent);
-						//fflush(stdout);
-					}		
+					//if (new_procent != prev_procent) {
+					//	printf("Процент выполнения - %d\n", new_procent);
+					//	//fflush(stdout);
+					//}		
 					prev_procent = new_procent;
 				}
 			}

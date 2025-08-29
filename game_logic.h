@@ -4,7 +4,6 @@
 #include "common.h"
 #include "dict.h"
 
-#define MAX_WORD_LEN 26
 
 typedef struct Cell {
 	char letter;
@@ -96,9 +95,9 @@ GameSettings* game_init_settings();
 
 StatusCode game_set_max_time_waiting(GameSettings* settings, int time);
 
-StatusCode game_set_difficulty(GameSettings* settings, int time);
+StatusCode game_set_difficulty(GameSettings* settings, int difficulty);
 
-StatusCode game_set_first_player(GameSettings* settings, int time);
+StatusCode game_set_first_player(GameSettings* settings, int first_player);
 
 void print_settings(GameSettings* settings);
 

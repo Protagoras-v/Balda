@@ -9,17 +9,6 @@
 #include "common.h"
 
 
-#define LEADERBOARD_SIZE 50
-#define MAX_WORD_LEN 26
-#define MIN_WORD_LEN 2
-
-#define FIELD_SIZE 5
-
-#define STARTING_PLAYER_WORDS_CAPACITY 50
-
-#define DEFAULT_DIFFICULTY 0
-#define DEFAULT_MAX_TIME 10
-#define DEFAULT_FIRST_PLAYER 1
 
 
 typedef struct User {
@@ -40,7 +29,7 @@ struct Leaderboard {
 };
 
 struct GameSettings {
-	int time_limit; //ms
+	unsigned int time_limit; //ms
 	unsigned int difficulty : 2;
 	unsigned int first_player : 2; // 0 isnt used, because 0 is an empty cell
 };
@@ -553,7 +542,6 @@ StatusCode game_confirm_move(Game* game, Dictionary* dict) {
 	if (dict_word_exists(dict, buffer)) {
 		//apply changes
 		game->scores[game->current_player - 1] = move->score;
-		printf("New score: %d\n", game->scores[game->current_player - 1]);
 		field_confirm_letter(game->field, move->y, move->x);
 
 		clear_word_selection(move);
@@ -916,7 +904,7 @@ GameSettings* game_init_settings() {
 	return settings;
 }
 
-
+//ms
 StatusCode game_set_max_time_waiting(GameSettings* settings, int time) {
 	if (settings == NULL) return ERROR_NULL_POINTER;
 
