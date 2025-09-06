@@ -1,3 +1,5 @@
+#define _CRT_SECURE_NO_WARNINGS
+
 #include <stdio.h>
 #include <stdbool.h>
 #include <windows.h>
@@ -5,6 +7,9 @@
 #include "ai.h"
 #include "game_logic.h"
 #include "common.h"
+
+
+#define TOP_MOVES_COUNT 20 //TOP_MOVES_COUNT the most longest words in mid and high algorithms will be saved
 
 struct AIState {
 	Move best_move;
@@ -322,14 +327,15 @@ static void ai_easy(Dictionary* dict, Game* game_copy, AIState* state) {
 //---------------------------------------------------------------------------------------------------------MIDDLE------------------------------------------------------------------------------------------------------------------
 //---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 
-static int dfs_mid_direct(AIState* state, Dictionary* dict, GameField* field, Game* game_copy, bool visited[][FIELD_SIZE], Iteration* iteration, int y, int x, int* counter) {
+static SearchCode dfs_mid_direct(AIState* state, Dictionary* dict, GameField* field, Game* game_copy, bool visited[][FIELD_SIZE], Iteration* iteration, Iteration top_moves[], int y, int x, int* counter) {
 	if (*counter % 256 == 0) {
 		unsigned long long now = GetTickCount64();
 		//fprintf(stderr, "now=%llu end_time=%llu diff=%lld if (now >= state->end_time) : %d\n",
 			//now, state->end_time, (long long)(state->end_time - now), now >= state->end_time);
 		if (now >= state->end_time) {
 			//fprintf(stderr, "iteration time: %llu\n", GetTickCount64());
-			if (state->is_move_found == 0) {
+			if (top_moves[0].path.len == 0 && state->is_move_found == 0) {
+				fprintf(stderr, "TIME CHECKER-------\n");
 				state->is_computation_complete = 1; //but is_move_found is still 0, so we can check this situation in main loop and request additional time
 
 				WaitForSingleObject(state->additional_time_event, INFINITE);
@@ -341,15 +347,16 @@ static int dfs_mid_direct(AIState* state, Dictionary* dict, GameField* field, Ga
 					state->is_additional_time = 0;
 				}
 				else if (state->is_additional_time == 0) {
-					return -1;
+					return TIME_OUT_AND_MOVE_NOT_FOUND;
 				}
 
 			}
 			else {
+				fprintf(stderr, "TIME CHECKER ELSE-------\n");
 				state->percentage = 100;
 				state->is_computation_complete = 1;
 
-				return 1;
+				return TIME_OUT_AND_MOVE_FOUND;
 			}
 		}
 		*counter = 0;
@@ -358,38 +365,40 @@ static int dfs_mid_direct(AIState* state, Dictionary* dict, GameField* field, Ga
 	iteration->path.cells[iteration->path.len++] = (WordCell){ y, x, field->grid[y][x].letter };
 	visited[y][x] = 1;
 
+
 	char prefix[MAX_WORD_LEN];
 	path_to_char(iteration->path, prefix, MAX_WORD_LEN);
 	if (!dict_prefix_exists(dict, prefix)) {
 		iteration->path.len--;
 		visited[y][x] = 0;
-		return 0;
+		return MOVE_NOT_FOUND;
 	}
 	//Maybe this first letter is the beginning of some word
 	if (dict_word_exists(dict, prefix)) {
-		if (!is_word_used(game_copy, prefix) && iteration->path.len > state->best_move.word_len) {
-			//save best word
-			state->best_move.word_len = iteration->path.len;
-			fprintf(stderr, "New best word: ");
-			for (int i = 0; i < iteration->path.len; i++) {
-				state->best_move.word[i] = iteration->path.cells[i];
-				fprintf(stderr, "%c", state->best_move.word[i].letter);
+		if (!is_word_used(game_copy, prefix)) {
+			//find place for this word in top_moves[] by it`s len (we need it in middle algorithm for compatibilities with hard)
+			for (int i = 0; i < TOP_MOVES_COUNT; i++) {
+				fprintf(stderr, "next, itration path.len = %d, current top_moves[i].path.len = %d\n", iteration->path.len, top_moves[i].path.len);
+				if (iteration->path.len > top_moves[i].path.len) {
+					if (top_moves[i].path.len == 0) { //this position is empty, so we just pass new value into it
+						top_moves[i] = *iteration; //copy Iteration structure
+					}
+					else { // in case where insertion occurs in the middle of top_moves[], we have to shift all elems to right.
+						top_moves[i + 1] = top_moves[i];
+						top_moves[i] = *iteration;
+						i++;
+						while (i < TOP_MOVES_COUNT - 1) {
+							top_moves[i + 1] = top_moves[i];
+							i++;
+						}
+					}
+					fprintf(stderr, "WORD\n");
+					//state->is_move_found = 1; //this is not necessery, because we should to check whether the move is found or not by checking top_moves[0].path.len 
+					break;
+				}
 			}
 			fprintf(stderr, "\n");
-			state->best_move.letter = iteration->letter;
-			state->best_move.y = iteration->y;
-			state->best_move.x = iteration->x;
-			state->best_move.score += iteration->path.len;
-
-			state->percentage = 100;
-			state->is_move_found = 1;
-		}
-		else {
-			iteration->path.len--;
-			visited[y][x] = 0;
-			return 0;
-		}
-			
+		}	
 	}
 
 	//up, down, left, right
@@ -401,24 +410,24 @@ static int dfs_mid_direct(AIState* state, Dictionary* dict, GameField* field, Ga
 		int newX = x + dx[i];
 
 		if (is_cell_coordinates_valid(field, newY, newX) && !visited[newY][newX] && !is_cell_empty(field, newY, newX)) {
-			int res = dfs_mid_direct(state, dict, field, game_copy, visited, iteration, newY, newX, counter);
-			if (res == 1 || res == -1) return res; // -1 - time_out, 1 - word have been founded, 0 - dead end
+			SearchCode res = dfs_mid_direct(state, dict, field, game_copy, visited, iteration, top_moves, newY, newX, counter);
+			if (res == TIME_OUT_AND_MOVE_FOUND || res == TIME_OUT_AND_MOVE_NOT_FOUND) return res; 
 		}
 	}
 	iteration->path.len--;
 	visited[y][x] = 0;
-	return 0;
+	return MOVE_NOT_FOUND;
 }
 
 
-static int dfs_mid_rev(AIState* state, Dictionary* dict, GameField* field, Game* game_copy, bool visited[][FIELD_SIZE], Iteration* iteration, int y, int x, int* counter) {
+static SearchCode dfs_mid_rev(AIState* state, Dictionary* dict, GameField* field, Game* game_copy, bool visited[][FIELD_SIZE], Iteration* iteration, Iteration top_moves[], int y, int x, int* counter) {
 	if (*counter % 256 == 0) {
 		unsigned long long now = GetTickCount64();
-		//fprintf(stderr, "now=%llu end_time=%llu diff=%lld if (now >= state->end_time) : %d\n",
-			//now, state->end_time, (long long)(state->end_time - now), now >= state->end_time);
 		if (now >= state->end_time) {
-			//fprintf(stderr, "iteration time: %llu\n", GetTickCount64());
-			if (state->is_move_found == 0) {
+			if (top_moves[0].path.len == 0 && state->is_move_found == 0) { 
+				//УБРАТЬ ИЗМЕНЕНИЕ is_move_found В DFS, СДЕЛАТЬ ПРОВЕРКУ top_moves[0].path.len != 0. ДЛЯ ТОГО, ЧТОБЫ МИНИМАКС НЕ ПРОСИЛ ДОП ВРЕМЯ КОГДА ХОД БЫЛ НАЙДЕН В ДРУГИХ ВЕТКАХ, МЫ ДОПОЛНИТЕЛЬНО ПОВЕРЯЕМ is_move_found == 0 
+				//(Для жадного алгоритма эта просто лишняя проверка, т.к. условие is_move_found будет всегда совпадать с тем, есть ли что-то в top_moves[0], но для совместимости с минимаксом лучше сделать так).
+				fprintf(stderr, "TIME CHECKER-------\n");
 				state->is_computation_complete = 1; //but is_move_found is still 0, so we can check this situation in main loop and request additional time
 
 				WaitForSingleObject(state->additional_time_event, INFINITE);
@@ -429,15 +438,16 @@ static int dfs_mid_rev(AIState* state, Dictionary* dict, GameField* field, Game*
 					state->is_additional_time = 0;
 				}
 				else if (state->is_additional_time == 0) {
-					return -1;
+					return TIME_OUT_AND_MOVE_NOT_FOUND;
 				}
 			
 			}
 			else {
+				fprintf(stderr, "TIME CHECKER ELSE-------\n");
 				state->percentage = 100;
 				state->is_computation_complete = 1;
 
-				return 1;
+				return TIME_OUT_AND_MOVE_FOUND;
 			}
 		}
 		*counter = 0;
@@ -453,7 +463,7 @@ static int dfs_mid_rev(AIState* state, Dictionary* dict, GameField* field, Game*
 		//fprintf(stderr, "Denied rev prefix: %s\n", prefix);
 		iteration->path.len--;
 		visited[y][x] = 0;
-		return 0;
+		return MOVE_NOT_FOUND;
 	}
 
 	//if we found reverse prefix, try to find all word 
@@ -468,8 +478,8 @@ static int dfs_mid_rev(AIState* state, Dictionary* dict, GameField* field, Game*
 			int newX = iteration->x + dx[i];
 			//fprintf(stderr, "(STARTING %d %d)    NEW -%d %d\n", iteration->y, iteration->x, newY, newX);
 			if (is_cell_coordinates_valid(field, newY, newX) && !visited[newY][newX] && !is_cell_empty(field, newY, newX)) {
-				int res = dfs_mid_direct(state, dict, field, game_copy, visited, iteration, newY, newX, counter);
-				if (res == -1 || res == 1) return res; // -1 - time_out, 1 - timeout and word have been founded 
+				SearchCode res = dfs_mid_direct(state, dict, field, game_copy, visited, iteration, top_moves, newY, newX, counter);
+				if (res == TIME_OUT_AND_MOVE_FOUND || res == TIME_OUT_AND_MOVE_NOT_FOUND) return res;
 			}
 		}
 		rotate_path(&iteration->path); //if its not then continue searching
@@ -482,39 +492,28 @@ static int dfs_mid_rev(AIState* state, Dictionary* dict, GameField* field, Game*
 		int newY = y + dy[i];
 		int newX = x + dx[i];
 		if (is_cell_coordinates_valid(field, newY, newX) && !visited[newY][newX] && !is_cell_empty(field, newY, newX)) {
-			int res = dfs_mid_rev(state, dict, field, game_copy, visited, iteration, newY, newX, counter);
-			if (res == -1 || res == 1) return res; // -1 - time_out, 1 - timeout and word have been founded 
+			SearchCode res = dfs_mid_rev(state, dict, field, game_copy, visited, iteration, top_moves, newY, newX, counter);
+			if (res == TIME_OUT_AND_MOVE_FOUND || res == TIME_OUT_AND_MOVE_NOT_FOUND) return res;
 		}
 	}
 
 	iteration->path.len--;
 	visited[y][x] = 0;
-	return 0;
+	return MOVE_NOT_FOUND;
 }
 
 
-static int mid_search(AIState* state, Dictionary* dict, GameField* field, Game* game_copy, int y, int x, Iteration* iteration, int* counter) {
-	bool visited[FIELD_SIZE][FIELD_SIZE] = { 0 };
-	return dfs_mid_rev(state, dict, field, game_copy, visited, iteration, y, x, counter);
-}
 
-
-static void ai_mid(Dictionary* dict, Game* game_copy, AIState* state) {
-	fprintf(stderr, "time_limit=%d\n", state->time_limit);
-	state->end_time = GetTickCount64() + (unsigned long long)state->time_limit;
-	fprintf(stderr, "End time: %llu\n", state->end_time);
-	int counter = 0;
-
+static SearchCode greedy_algorithm(Dictionary* dict, Game* game_copy, AIState* state, Iteration top_moves[], int* counter) {
 	GameField* field = game_get_field(game_copy);
 	if (field == NULL) {
 		fprintf(stderr, "Ошибка при получении поля game_get_field()\n");
-		return;
+		return -2;
 	}
-
-	char alphabet[34] = "абвгдеёжзийклмнопрстуфхцчшщъыьэюя";
 
 	Iteration iteration = { 0 };
 
+	char alphabet[34] = "абвгдеёжзийклмнопрстуфхцчшщъыьэюя";
 	int candidates[20][2]; //candidates for letter placing, 20 because there are 25 - 5 cells for 5x5
 	int count = 0;
 	for (int y = 0; y < field->height; y++) {
@@ -534,15 +533,15 @@ static void ai_mid(Dictionary* dict, Game* game_copy, AIState* state) {
 			state->percentage = ((i * 33 + let) * 100) / total_combinations;
 
 			//check time limit, value should be divisible by 2, since in this case the compiler optimizes it to bit mask
-			if (counter % 256 == 0) {
+			if (*counter % 256 == 0) {
 				unsigned long long now = GetTickCount64();
 				fprintf(stderr, "now=%llu end_time=%llu diff=%lld if (now >= state->end_time) : %d\n",
 					now, state->end_time, (long long)(state->end_time - now), now >= state->end_time);
 				if (now >= state->end_time) {
 					fprintf(stderr, "iteration time: %llu\n", now);
-					if (state->is_move_found == 0) {
+					if (top_moves[0].path.len == 0 && state->is_move_found == 0) {
 						state->is_computation_complete = 1; //but is_move_found is still 0, so we can check this situation in main loop and request additional time
-
+						fprintf(stderr, "Wait for SO\n");
 						WaitForSingleObject(state->additional_time_event, INFINITE);
 
 						if (state->is_additional_time == 1) {
@@ -556,14 +555,15 @@ static void ai_mid(Dictionary* dict, Game* game_copy, AIState* state) {
 
 					}
 					else {
+						fprintf(stderr, "TIME CHECKER ELSE-------\n");
 						state->percentage = 100;
 						state->gave_up = 1;
 						return;
 					}
 				}
-				counter = 0;
+				*counter = 0;
 			}
-			counter++;
+			(*counter)++;
 
 			int y = candidates[i][0];
 			int x = candidates[i][1];
@@ -574,22 +574,71 @@ static void ai_mid(Dictionary* dict, Game* game_copy, AIState* state) {
 			iteration.y = y;
 			iteration.x = x;
 
-			int res = mid_search(state, dict, field, game_copy, y, x, &iteration, &counter);
-			field->grid[y][x].letter = '\0'; //unlike easy level, we continue until all possible cells have been checked or timeout has expired (and move has been found)
-			if (res == -1) {
-				//timeout and denied by user
-				printf("time_out\n");
-				state->gave_up = 1;
-				return;
+			bool visited[FIELD_SIZE][FIELD_SIZE] = { 0 };
+			SearchCode res = dfs_mid_rev(state, dict, field, game_copy, visited, &iteration, top_moves, y, x, counter);
+			if (res == TIME_OUT_AND_MOVE_NOT_FOUND) {
+				fprintf(stderr, "TIME_OUT_AND_MOVE_NOT_FOUND\n");
+				return res;
 			}
+			else if (res == TIME_OUT_AND_MOVE_FOUND) {
+				fprintf(stderr, "TIME_OUT_AND_MOVE_FOUND\n");
+				return res;
+			}
+			field->grid[y][x].letter = '\0'; //unlike easy level, we continue until all possible cells have been checked or timeout has expired (and move has been found)
 		}
+		fprintf(stderr, "ITERATION COMPLETE\n");
 	}
-	fprintf(stderr, "END\n");
-	//if there are no words
-	if (state->is_move_found == 0) {
+	fprintf(stderr, "DONE\n");
+	if (top_moves[0].path.len != 0) {
+		return MOVE_FOUND;
+	}
+	return MOVE_NOT_FOUND;
+}
+
+
+static void ai_mid(Dictionary* dict, Game* game_copy, AIState* state) {
+	//fprintf(stderr, "time_limit=%d\n", state->time_limit);
+	state->end_time = GetTickCount64() + (unsigned long long)state->time_limit;
+	//fprintf(stderr, "End time: %llu\n", state->end_time);
+	int counter = 0;
+
+
+	Iteration top_moves[TOP_MOVES_COUNT] = { 0 }; //top TOP_MOVES_COUNT words (with info about letter), we need it for compatibilities with hard algorithm
+	SearchCode res = greedy_algorithm(dict, game_copy, state, top_moves, &counter);
+
+	if (res == TIME_OUT_AND_MOVE_FOUND || res == MOVE_FOUND) {
+		state->best_move.word_len = top_moves[0].path.len;
+		fprintf(stderr, "Best word: ");
+		for (int i = 0; i < top_moves[0].path.len; i++) {
+			state->best_move.word[i] = top_moves[0].path.cells[i];
+			fprintf(stderr, "%c", state->best_move.word[i].letter);
+		}
+		fprintf(stderr, "\n");
+		state->best_move.letter = top_moves[0].letter;
+		state->best_move.y = top_moves[0].y;
+		state->best_move.x = top_moves[0].x;
+		state->best_move.score += top_moves[0].path.len;
+
+		state->percentage = 100;
+		state->is_move_found = 1;
+	}
+	else {
 		state->gave_up = 1;
 	}
+	fprintf(stderr, "MID-------\n");
 	state->is_computation_complete = 1;
+}
+
+
+
+
+
+//---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+//-----------------------------------------------------------------------------------------------------------HARD------------------------------------------------------------------------------------------------------------------
+//---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+
+static void ai_high(Dictionary* dict, Game* game_copy, AIState* stat) {
+	int var = 3;
 }
 
 
@@ -620,6 +669,9 @@ static void ai_thread(void* param) {
 	else if (game_get_difficulty(game) == 1) {
 		ai_mid(dict, game, state);
 	}
+	else if (game_get_difficulty(game) == 2) {
+		ai_high(dict, game, state);
+	}
 
 	//applying to AIState
 
@@ -630,6 +682,7 @@ static void ai_thread(void* param) {
 
 
 StatusCode ai_start_turn(Game* game, AIState* state, Dictionary* dict) {
+	fprintf(stderr, "TURN STARTED----------\n");
 	if (game == NULL) return ERROR_NULL_POINTER;
 	if (state == NULL) return ERROR_NULL_POINTER;
 	if (dict == NULL) return ERROR_NULL_POINTER;
@@ -668,11 +721,10 @@ AIState* ai_state_init() {
 		return NULL;
 	}
 
-	fprintf(stderr, "INIT STATE\n");
-
 	state->additional_time_event = CreateEvent(NULL, FALSE, FALSE, NULL); // event for thread waiting
 	state->percentage = 0;
 	state->is_move_found = 0;
+	fprintf(stderr, "STATE INIT-----\n");
 	state->is_computation_complete = 1;
 	state->is_additional_time = 0;
 	state->is_started = 0;

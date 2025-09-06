@@ -1,6 +1,6 @@
 #pragma once
+#define _CRT_SECURE_NO_WARNINGS
 #include <stdbool.h>
-
 
 #define MAX_WORD_LEN 26
 #define FIELD_SIZE 5

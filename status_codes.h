@@ -41,3 +41,10 @@ typedef enum {
     AI_TIMEOUT = 401,
     AI_THREAD_ERROR = 402
 } StatusCode;
+
+typedef enum {
+    MOVE_FOUND,
+    TIME_OUT_AND_MOVE_FOUND,
+    TIME_OUT_AND_MOVE_NOT_FOUND,
+    MOVE_NOT_FOUND
+} SearchCode;

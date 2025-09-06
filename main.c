@@ -569,6 +569,7 @@ int main() {
 					game_destroy(&game);
 				}
 				else if (ai_need_additional_time(state)) {
+					fprintf(stderr, "NEED TIME\n");
 					int reply = 0;
 					printf("Компьютер не успел найти слово, хотите дать ему еще времени?\n1-да, 0 - нет\n");
 					scanf("%d", &reply);
@@ -605,6 +606,7 @@ int main() {
 					}
 				}
 				else if (ai_word_founded(state)) {
+					fprintf(stderr, "WORD FOUNDED\n");
 					char ai_word[MAX_WORD_LEN + 1];
 					game_set_move(game, ai_get_move(state));
 					game_get_word(game, ai_word);
