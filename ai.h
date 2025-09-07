@@ -18,7 +18,7 @@ bool ai_status(AIState* state);
 
 bool ai_need_additional_time(AIState* state);
 
-bool ai_word_founded(AIState* state);
+bool ai_word_found(AIState* state);
 
 bool ai_gave_up(AIState* state);
 

@@ -182,6 +182,7 @@ int parse_command(Dictionary* dict, GameSettings* settings, Game** game, Leaderb
 			code = game_load(*game, filename);
 			if (code == ERROR_FILE_NOT__FOUND) {
 				printf("Такого файла нет!\n");
+				game_destroy(game);
 			}
 			else check_code(code);
 		}
@@ -213,27 +214,7 @@ int parse_command(Dictionary* dict, GameSettings* settings, Game** game, Leaderb
 				scanf("%d", &d);
 				clear_input_buffer();
 
-				if (d == 0) {
-					id = 0;
-					game_get_winner(*game, &id);
-
-					//ask player`s name for leaderbord
-					if (id == 1 && game_is_enough_score_for_lb(*game, lb)) {
-						char name[255];
-
-						printf("Введите свое имя\n");
-						scanf("%s", name);
-						clear_input_buffer();
-						char* t = strchr(name, '\n');
-						if (t != NULL) *t = '\0';
-
-						code = game_add_into_leaderboard(lb, *game, name);
-						check_code(code);
-					}
-
-					game_destroy(game);
-				}
-				else if (d != 0) {
+				if (d != 0) {
 					char filename[100];
 					printf("Введите имя файла:\n");
 					scanf("%s", filename);
@@ -244,6 +225,24 @@ int parse_command(Dictionary* dict, GameSettings* settings, Game** game, Leaderb
 					clear_input_buffer();
 					game_save(*game, filename);
 				}
+				id = 0;
+				game_get_winner(*game, &id);
+
+				//ask player`s name for leaderbord
+				if (id == 1 && game_is_enough_score_for_lb(*game, lb)) {
+					char name[255];
+
+					printf("Введите свое имя\n");
+					scanf("%s", name);
+					clear_input_buffer();
+					char* t = strchr(name, '\n');
+					if (t != NULL) *t = '\0';
+
+					code = game_add_into_leaderboard(lb, *game, name);
+					check_code(code);
+				}
+
+				game_destroy(game);
 			}
 			else {
 				printf("Закончить игру может только player_1 (человек)\n");
@@ -536,6 +535,8 @@ int main() {
 	
 	int prev_procent = 0;
 
+	///printf("тномер exists: %d", dict_reverse_word_exists(dict, "тноме"));
+
 	bool f = 1;
 	while (f) {
 		//AI
@@ -605,12 +606,10 @@ int main() {
 						game_destroy(&game);
 					}
 				}
-				else if (ai_word_founded(state)) {
-					fprintf(stderr, "WORD FOUNDED\n");
+				else if (ai_word_found(state)) {
 					char ai_word[MAX_WORD_LEN + 1];
-					game_set_move(game, ai_get_move(state));
-					game_get_word(game, ai_word);
-					code = game_confirm_move(game, dict);
+					code = game_apply_generated_move(game, *ai_get_move(state));
+					game_get_word_from_move(*ai_get_move(state), ai_word);
 					if (code == SUCCESS) {
 						if (prev_procent != 100) printf("Процент выполнения - 100\n");
 						printf("Слово, составленное компьютером: %s\n", ai_word);

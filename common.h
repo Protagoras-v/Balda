@@ -9,14 +9,20 @@
 
 //game_logic
 #define STARTING_PLAYER_WORDS_CAPACITY 50
-#define DEFAULT_DIFFICULTY 1
-#define DEFAULT_MAX_TIME 2000 //ms
+#define DEFAULT_DIFFICULTY 2
+#define DEFAULT_MAX_TIME 60000 //ms
 #define DEFAULT_FIRST_PLAYER 1
 
 //dict
 #define FILE_NAME "dictionary.txt"
 #define FILE_STARTING_WORDS "starting_words.txt"
+
 //ai
+#define MINIMAX_DEPTH 2
+
+
+#define MIN(a, b) (((a) < (b)) ? (a) : (b))
+#define MAX(a, b) (((a) > (b)) ? (a) : (b))
 
 
 

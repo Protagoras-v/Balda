@@ -30,7 +30,7 @@ struct Leaderboard {
 struct GameSettings {
 	unsigned int time_limit; //ms
 	unsigned int difficulty : 2;
-	unsigned int first_player : 2; // 0 isnt used, because 0 is an empty cell
+	unsigned int first_player : 2; // 0 isn`t used, because 0 is an empty cell
 };
 
 struct Game {
@@ -224,6 +224,12 @@ static StatusCode add_player_word(PlayerWords* p, char* word) {
 		
 		return SUCCESS;
 	}
+}
+
+//remove last word from player`s words list, its used for minimax
+static void remove_from_player_words(PlayerWords* p) {
+	p->count--;
+	free(p->words[p->count]);
 }
 
 
@@ -784,18 +790,71 @@ Game* game_make_copy(Game* game) {
 	return copy;
 }
 
-//function for applying ai move
-StatusCode game_set_move(Game* game, Move* move) {
+
+//for ai moves, apply move, switch player, increase score
+StatusCode game_apply_generated_move(Game* game, Move move) {
 	if (game == NULL) return ERROR_NULL_POINTER;
-	game->current_move.letter = move->letter;
-	game->current_move.y = move->y;
-	game->current_move.x = move->x;
-	field_set_letter(game->field, move->y, move->x, move->letter, 2); //2 because its only for ai
-	game->current_move.word_len = move->word_len;
-	game->current_move.score = move->score;
-	for (int i = 0; i < move->word_len; i++) {
-		game->current_move.word[i] = move->word[i];
+
+	//we need to add the word to player_words, because otherwise the greedy algorithm might use the same word twice
+	char word[MAX_WORD_LEN];
+	WordCell_to_char(move.word, word, move.word_len);
+	if (game->current_player == 1) {
+		StatusCode code = add_player_word(&game->player1_words, word);
+		if (code != SUCCESS) return code;
 	}
+	else if (game->current_player == 2) {
+		StatusCode code = add_player_word(&game->player2_words, word);
+		if (code != SUCCESS) return code;
+	}
+
+	field_set_letter(game->field, move.y, move.x, move.letter, game_get_player_id(game));
+	game->scores[game->current_player - 1] += move.word_len;
+	game->current_player = (game->current_player == 1) ? 2 : 1;
+
+	//move
+	game->current_move.letter = '\0';
+	game->current_move.y = -1;
+	game->current_move.x = -1;
+	game->current_move.word_len = 0;
+	game->current_move.score = game->current_player == 1 ? game->scores[1] : game->scores[0]; //set next player`s starting score
+
+	return SUCCESS;
+}
+
+//for ai moves, undo move, switch player back and decrease score
+StatusCode game_undo_generated_move(Game* game, Move move) {
+	if (game == NULL) return ERROR_NULL_POINTER;
+
+	game->current_player = (game->current_player == 1) ? 2 : 1;
+
+	//remove word from player_words
+	game->current_player == 1 ? remove_from_player_words(&game->player1_words) : remove_from_player_words(&game->player2_words);
+	game->scores[game->current_player - 1] -= move.word_len;
+	field_remove_letter(game->field, move.y, move.x);
+
+	game->current_move.letter = '\0';
+	game->current_move.y = -1;
+	game->current_move.x = -1;
+	game->current_move.word_len = 0;
+	game->current_move.score -= move.word_len;
+	game->current_move.word_len = 0;
+
+	return SUCCESS;
+}
+
+StatusCode game_confirm_generated_move(Game* game) {
+	Move* move = &game->current_move;
+
+	field_confirm_letter(game->field, move->y, move->x);
+	clear_word_selection(move);
+	move->letter = '\0';
+	move->y = -1;
+	move->x = -1;
+
+	//pass the turn
+	move->score = (game->current_player == 1) ? game->scores[1] : game->scores[0];
+	game->current_player = (game->current_player == 1) ? 2 : 1;
+
 	return SUCCESS;
 }
 
@@ -857,6 +916,19 @@ StatusCode game_get_word(Game* game, char word[]) {
 	return SUCCESS;
 }
 
+StatusCode game_get_word_from_move(Move move, char* word) {
+	if (move.word_len < 1) {
+		clear_word_selection(&move);
+		return GAME_WORD_EMPTY;
+	}
+	char buffer[MAX_WORD_LEN + 1];
+	WordCell_to_char(move.word, buffer, move.word_len);
+	strncpy(word, buffer, strlen(buffer) + 1);
+
+	return SUCCESS;
+}
+
+
 StatusCode game_get_winner(Game* game, int* winner_id) {
 	if (game == NULL) return ERROR_NULL_POINTER;
 	if (game->scores[0] > game->scores[1]) *winner_id = 1;
@@ -882,8 +954,8 @@ int game_get_player_id(Game* game) {
 int game_get_difficulty(Game* game) {
 	return game->settings->difficulty;
 }
-int game_get_time_limit(Game* game) {
-	return game->settings->time_limit;
+unsigned long long game_get_time_limit(Game* game) {
+	return (unsigned long long) game->settings->time_limit;
 }
 
 //--------------------------------------

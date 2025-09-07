@@ -62,14 +62,16 @@ StatusCode game_add_into_leaderboard(Leaderboard* lb, Game* game, const char* us
 
 Game* game_make_copy(Game* game);
 
-StatusCode game_set_move(Game* game, Move* move);
+StatusCode game_apply_generated_move(Game* game, Move move);
+
+StatusCode game_undo_generated_move(Game* game, Move move);
 
 
 //-------------------------------------------
 //--------------------get--------------------
 //-------------------------------------------
 int game_get_difficulty(Game* game);
-int game_get_time_limit(Game* game);
+unsigned long long game_get_time_limit(Game* game);
 int game_get_player_id(Game* game);
 
 GameField* game_get_field(Game* game);
@@ -83,6 +85,8 @@ StatusCode game_get_player_words(Game* game, int player_id, char*** words, int* 
 StatusCode game_get_winner(Game* game, int* winner_id);
 //returns current word
 StatusCode game_get_word(Game* game, char* word);
+
+StatusCode game_get_word_from_move(Move move, char* word);
 
 StatusCode game_get_leaderboard(Leaderboard* lb, char usernames[][MAX_WORD_LEN + 1], int scores[], int* size);
 
