@@ -12,7 +12,7 @@
 #define TOP_MOVES_COUNT 20 //TOP_MOVES_COUNT the most longest words in mid and high algorithms will be saved
 
 struct AIState {
-	Move best_move;
+	volatile Move best_move;
 	unsigned long long end_time; //ms
 	volatile unsigned char is_move_found;
 
@@ -81,7 +81,7 @@ static void state_set(AIState* state, int score, unsigned long long time_limit) 
 	InterlockedExchange8(&state->time_limit, 0);
 	InterlockedExchange8(&state->gave_up, 0);
 	InterlockedExchange8(&state->is_additional_time, 0);
-	InterlockedExchange8(&state->is_started, 0);
+	//InterlockedExchange8(&state->is_started, 0);
 
 	EnterCriticalSection(&state->critical_section);
 	state->best_move.letter = '\0';
@@ -347,7 +347,7 @@ static void ai_easy(Dictionary* dict, Game* game_copy, AIState* state) {
 				InterlockedExchange8(&state->is_move_found, 1);
 				InterlockedExchange8(&state->percentage, 100);
 				InterlockedExchange8(&state->is_computation_complete, 1);
-
+				fprintf(stderr, "EASY DONE\n");
 				return;
 			}
 			else if (res == 0) {
@@ -364,6 +364,7 @@ static void ai_easy(Dictionary* dict, Game* game_copy, AIState* state) {
 	}
 	//if there are no words
 	InterlockedExchange8(&state->gave_up, 1);
+	
 }
 
 
@@ -764,7 +765,7 @@ int minimax(Game* game_copy, Dictionary* dict, AIState* state, int depth, int al
 static void ai_high(Dictionary* dict, Game* game_copy, AIState* state) {
 	unsigned long long start_time = GetTickCount64();
 	state->end_time = start_time + (unsigned long long)state->time_limit;
-	fprintf(stderr, "Start time: %llu\nEnd time; %llu\n", start_time, state->end_time);
+	//fprintf(stderr, "Start time: %llu\nEnd time; %llu\n", start_time, state->end_time);
 	int counter = 0;
 
 	Move top_moves[TOP_MOVES_COUNT] = { 0 };
@@ -777,10 +778,11 @@ static void ai_high(Dictionary* dict, Game* game_copy, AIState* state) {
 	bool timeout = false;
 	int alpha = INT_MIN;
 	//minimax
+	//fprintf(stderr, "%d\n", moves_count);
 	for (int i = 0; i < moves_count; i++) {
 		game_apply_generated_move(game_copy, top_moves[i]);
 		int score = minimax(game_copy, dict, state, MINIMAX_DEPTH, alpha, INT_MAX, false, &timeout, &counter);
-		fprintf(stderr, "score: %d\n", score);
+		//fprintf(stderr, "score: %d\n", score);
 		if (score > best_score) {
 			best_score = score;
 			EnterCriticalSection(&state->critical_section);
@@ -848,6 +850,7 @@ static void ai_thread(void* param) {
 
 	free(args);
 	game_destroy(&game);
+	//fprintf(stderr, "TERMINATE THREAD\n");
 	_endthread();
 }
 
@@ -857,8 +860,8 @@ StatusCode ai_start_turn(Game* game, AIState* state, Dictionary* dict) {
 	if (state == NULL) return ERROR_NULL_POINTER;
 	if (dict == NULL) return ERROR_NULL_POINTER;
 
-	state->is_computation_complete = 0;
-	state->is_started = 1;
+	InterlockedExchange8(&state->is_computation_complete, 0);
+	InterlockedExchange8(&state->is_started, 1);
 
 	ThreadArgs* args = malloc(sizeof(ThreadArgs));
 	if (args == NULL) {
@@ -929,7 +932,7 @@ StatusCode ai_give_additional_time(AIState* state, bool n, int additional_time) 
 	if (!n) InterlockedExchange8(&state->is_additional_time, 0);
 	else {
 		InterlockedExchange8(&state->is_additional_time, 1);
-		InterlockedExchange8(&state->time_limit, additional_time);
+		InterlockedExchange(&state->time_limit, additional_time);
 		InterlockedExchange8(&state->is_computation_complete, 0);
 	}
 	return SUCCESS;

@@ -542,6 +542,7 @@ int main() {
 		//AI
 		if (game != NULL && game_get_player_id(game) == 2) {
 			if (!ai_status(state)) {
+				fprintf(stderr, "STARTED AGAIN!!!!!!!!!!!!!!\n");
 				ai_start_turn(game, state, dict);
 			}
 			//if already started
@@ -611,12 +612,13 @@ int main() {
 
 					EnterCriticalSection(ai_get_cs(state));
 					code = game_apply_generated_move(game, *ai_get_move(state));
+					game_get_word_from_move(*ai_get_move(state), ai_word);
 					LeaveCriticalSection(ai_get_cs(state));
 
-					game_get_word_from_move(*ai_get_move(state), ai_word);
 					if (code == SUCCESS) {
 						if (prev_procent != 100) printf("Процент выполнения - 100\n");
-						printf("Слово, составленное компьютером: %s\n", ai_word);
+						fprintf(stderr, "Слово, составленное компьютером: %s\n", ai_word);
+						
 						ai_set_stop(state);
 					}
 					else {
