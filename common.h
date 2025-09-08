@@ -1,6 +1,16 @@
 #pragma once
 #define _CRT_SECURE_NO_WARNINGS
+
 #include <stdbool.h>
+#include <stdio.h>
+#include <windows.h>
+#include <limits.h>
+#include <process.h>
+#include <string.h>
+#include <stdlib.h>
+#include <locale.h>
+
+
 
 #define MAX_WORD_LEN 26
 #define FIELD_SIZE 5
@@ -20,10 +30,13 @@
 //ai
 #define MINIMAX_DEPTH 2
 
+//ui
+#define SCREEN_HEIGHT 1200
+#define SCREEN_WIDTH 900
+
 
 #define MIN(a, b) (((a) < (b)) ? (a) : (b))
 #define MAX(a, b) (((a) > (b)) ? (a) : (b))
-
 
 
 typedef struct WordCell {

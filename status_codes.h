@@ -39,7 +39,10 @@ typedef enum {
 
     AI_NO_MOVES_FOUND = 400,
     AI_TIMEOUT = 401,
-    AI_THREAD_ERROR = 402
+    AI_THREAD_ERROR = 402,
+
+
+    SDL_ERROR = 500,
 } StatusCode;
 
 typedef enum {

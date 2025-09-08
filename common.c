@@ -1,4 +1,4 @@
-#include <string.h>
+
 #include "common.h"
 
 bool is_it_ru_letter(const unsigned char c) {

@@ -1,5 +1,4 @@
 #pragma once
-#include <process.h>
 #include "game_logic.h"
 #include "common.h"
 
@@ -25,5 +24,7 @@ bool ai_gave_up(AIState* state);
 unsigned char ai_get_percentage(AIState* state);
 
 HANDLE ai_get_handle(AIState* state);
+
+CRITICAL_SECTION* ai_get_cs(AIState* state);
 
 Move* ai_get_move(AIState* state);

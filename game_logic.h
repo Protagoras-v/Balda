@@ -1,5 +1,4 @@
 #pragma once
-#include <stdbool.h>
 #include "status_codes.h"
 #include "common.h"
 #include "dict.h"

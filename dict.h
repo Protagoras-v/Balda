@@ -1,6 +1,6 @@
 #pragma once
-#include <stdbool.h>
 #include "status_codes.h"
+#include "common.h"
 
 //typedef struct TrieNode TrieNode;
 typedef struct Dictionary Dictionary;

@@ -1,13 +1,12 @@
 #define _CRT_SECURE_NO_WARNINGS
 
-#include <stdio.h>
-#include <stdbool.h>
-#include <windows.h>
-#include <limits.h>
-
 #include "ai.h"
 #include "game_logic.h"
 #include "common.h"
+
+//because there is a bug we need to include <intrin.h> and define InterlockedCompareExchange8 manualy, because it is missed in windows.h :)
+#include <intrin.h>
+#define InterlockedCompareExchange8 _InterlockedCompareExchange8
 
 
 #define TOP_MOVES_COUNT 20 //TOP_MOVES_COUNT the most longest words in mid and high algorithms will be saved
@@ -17,15 +16,18 @@ struct AIState {
 	unsigned long long end_time; //ms
 	volatile unsigned char is_move_found;
 
-	volatile unsigned char is_additional_time;
+	volatile bool is_additional_time;
 	volatile unsigned int time_limit; //volatile because if user gives an additional time, this field will contain this new value
 
-	volatile unsigned char is_computation_complete;
-	volatile unsigned char is_started ; // has the move already started 
-	volatile unsigned char gave_up;
+	volatile bool is_computation_complete;
+	volatile bool is_started ; // has the move already started 
+	volatile bool gave_up;
 	volatile unsigned char percentage;
 
 	HANDLE additional_time_event;
+	CRITICAL_SECTION critical_section;
+
+	//pthread_mutex_t mutex;
 };
 
 
@@ -73,19 +75,21 @@ static void save_move(Iteration iteration, Move top_moves[], int i) {
 
 
 static void state_set(AIState* state, int score, unsigned long long time_limit) {
-	state->is_computation_complete = 0;
-	state->is_move_found = 0;
-	state->percentage = 0;
-	state->time_limit = time_limit;
-	state->gave_up = 0;
-	state->is_additional_time = 0;
-	state->is_started = 1;
+	InterlockedExchange8(&state->is_computation_complete, 0);
+	InterlockedExchange8(&state->is_move_found, 0);
+	InterlockedExchange8(&state->percentage, 0);
+	InterlockedExchange8(&state->time_limit, 0);
+	InterlockedExchange8(&state->gave_up, 0);
+	InterlockedExchange8(&state->is_additional_time, 0);
+	InterlockedExchange8(&state->is_started, 0);
 
+	EnterCriticalSection(&state->critical_section);
 	state->best_move.letter = '\0';
 	state->best_move.y = -1;
 	state->best_move.x = -1;
 	state->best_move.word_len = 0;
 	state->best_move.score = score;
+	LeaveCriticalSection(&state->critical_section);
 }
 
 static void rotate_path(Path* path) {
@@ -114,16 +118,24 @@ static void path_to_char(Path current_path, char* res, int wLen) {
 
 
 static int dfs_easy_direct(AIState* state, Dictionary* dict, GameField* field, Game* game_copy, bool visited[][FIELD_SIZE], Path* path, int y, int x, int* counter) {
-	//printf("direct\n");
-	if (*counter % 256 == 0 && GetTickCount64() >= state->end_time) {
-		state->is_computation_complete = 1;
-		WaitForSingleObject(state->additional_time_event, INFINITE);
-		state->is_computation_complete = 0;
-		if (state->is_additional_time) {
-			state->end_time = GetTickCount64() + state->time_limit;
-		}
-		else {
-			return -1;
+	if (*counter % 256 == 0) {
+		unsigned long long current_time = GetTickCount64();
+		if (current_time >= state->end_time) {
+			if (state->is_move_found == 0) {
+				//ask more time	
+				InterlockedExchange8(&state->is_computation_complete, 1); //but is_move_found is still 0, so we can check this situation in main loop and request additional time
+
+				WaitForSingleObject(state->additional_time_event, INFINITE);
+				InterlockedExchange8(&state->is_computation_complete, 0);
+
+				if (state->is_additional_time == 1) {
+					state->end_time = GetTickCount64() + state->time_limit;
+					InterlockedExchange8(&state->is_additional_time, 0);
+				}
+				else {
+					return;
+				}
+			}
 		}
 		*counter = 0;
 	}
@@ -174,15 +186,24 @@ static int dfs_easy_direct(AIState* state, Dictionary* dict, GameField* field, G
 // bool because an easy algorithm returns the first word found
 static int dfs_easy_rev(AIState* state, Dictionary* dict, GameField* field, Game* game_copy, bool visited[][FIELD_SIZE], Path* path, int y, int x, int* counter) {
 	//check time limit
-	if (*counter % 256 == 0 && GetTickCount64() >= state->end_time) {
-		state->is_computation_complete = 1;
-		WaitForSingleObject(state->additional_time_event, INFINITE);
-		state->is_computation_complete = 0;
-		if (state->is_additional_time) {
-			state->end_time = GetTickCount64() + state->time_limit;
-		}
-		else {
-			return -1;
+	if (*counter % 256 == 0) {
+		unsigned long long current_time = GetTickCount64();
+		if (current_time >= state->end_time) {
+			if (state->is_move_found == 0) {
+				//ask more time	
+				InterlockedExchange8(&state->is_computation_complete, 1); //but is_move_found is still 0, so we can check this situation in main loop and request additional time
+
+				WaitForSingleObject(state->additional_time_event, INFINITE);
+				InterlockedExchange8(&state->is_computation_complete, 0);
+
+				if (state->is_additional_time == 1) {
+					state->end_time = GetTickCount64() + state->time_limit;
+					InterlockedExchange8(&state->is_additional_time, 0);
+				}
+				else {
+					return;
+				}
+			}
 		}
 		*counter = 0;
 	}
@@ -277,24 +298,25 @@ static void ai_easy(Dictionary* dict, Game* game_copy, AIState* state) {
 	for (int i = 0; i < count; i++) {
 		for (int let = 0; let < 33; let++) {
 			//progress
-			state->percentage = ((i * 33 + let) * 100) / total_combinations;
+			unsigned char new_perc_val = ((i * 33 + let) * 100) / total_combinations;
+			InterlockedExchange8(&state->percentage, new_perc_val);
 
 			//check time limit, value should be divisible by 2, since in this case the compiler optimizes it to bit mask
 			if (counter % 256 == 0) {
-				if (GetTickCount64() >= state->end_time) {
+				unsigned long long current_time = GetTickCount64();
+				if (current_time >= state->end_time) {
 					if (state->is_move_found == 0) {
-						//ask more time
-						state->is_computation_complete = 1; //but is_move_found is still 0, so we can check this situation in main loop and request additional time
+						//ask more time	
+						InterlockedExchange8(&state->is_computation_complete, 1); //but is_move_found is still 0, so we can check this situation in main loop and request additional time
 
 						WaitForSingleObject(state->additional_time_event, INFINITE);
-						state->is_computation_complete = 0;
+						InterlockedExchange8(&state->is_computation_complete, 0);
 
 						if (state->is_additional_time == 1) {
 							state->end_time = GetTickCount64() + state->time_limit;
-							state->is_computation_complete = 0;
-							state->is_additional_time = 0;
+							InterlockedExchange8(&state->is_additional_time, 0);
 						}
-						else if (state->is_additional_time == 0) {
+						else {
 							return;
 						}
 					}
@@ -309,6 +331,7 @@ static void ai_easy(Dictionary* dict, Game* game_copy, AIState* state) {
 
 			int res = easy_search(state, dict, field, game_copy, y, x, &path, &counter);
 			if (res) {
+				EnterCriticalSection(&state->critical_section);
 				state->best_move.letter = alphabet[let];
 				state->best_move.y = y;
 				state->best_move.x = x;
@@ -319,10 +342,11 @@ static void ai_easy(Dictionary* dict, Game* game_copy, AIState* state) {
 				}
 				//fprintf(stderr, "\n");
 				state->best_move.score += path.len;
+				LeaveCriticalSection(&state->critical_section);
 
-				state->is_move_found = 1;
-				state->percentage = 100;
-				state->is_computation_complete = 1;
+				InterlockedExchange8(&state->is_move_found, 1);
+				InterlockedExchange8(&state->percentage, 100);
+				InterlockedExchange8(&state->is_computation_complete, 1);
 
 				return;
 			}
@@ -333,13 +357,13 @@ static void ai_easy(Dictionary* dict, Game* game_copy, AIState* state) {
 			else if (res == -1) {
 				//timeout and denied by user
 				printf("time_out\n");
-				state->gave_up = 1;
+				InterlockedExchange8(&state->gave_up, 1);
 				return;
 			}
 		}
 	}
 	//if there are no words
-	state->gave_up = 1;
+	InterlockedExchange8(&state->gave_up, 1);
 }
 
 
@@ -352,31 +376,27 @@ static void ai_easy(Dictionary* dict, Game* game_copy, AIState* state) {
 static SearchCode dfs_greedy_direct(AIState* state, Dictionary* dict, GameField* field, Game* game_copy, bool visited[][FIELD_SIZE], Iteration* iteration, Move top_moves[], int y, int x, int* counter) {
 	if (*counter % 256 == 0) {
 		unsigned long long now = GetTickCount64();
-		//fprintf(stderr, "now=%llu end_time=%llu diff=%lld if (now >= state->end_time) : %d\n",
-			//now, state->end_time, (long long)(state->end_time - now), now >= state->end_time);
 		if (now >= state->end_time) {
 			//fprintf(stderr, "iteration time: %llu\n", GetTickCount64());
 			if (top_moves[0].word_len == 0 && state->is_move_found == 0) {
 				fprintf(stderr, "TIME CHECKER-------\n");
-				state->is_computation_complete = 1; //but is_move_found is still 0, so we can check this situation in main loop and request additional time
-
+				InterlockedExchange8(&state->is_computation_complete, 1); //but is_move_found is still 0, so we can check this situation in main loop and request additional time
 				WaitForSingleObject(state->additional_time_event, INFINITE);
-				state->is_computation_complete = 0;
+				InterlockedExchange8(&state->is_computation_complete, 0);
 
 				if (state->is_additional_time == 1) {
-					state->end_time = GetTickCount64() + state->time_limit ;
-					state->is_computation_complete = 0;
-					state->is_additional_time = 0;
+					state->end_time = GetTickCount64() + state->time_limit;
+					InterlockedExchange8(&state->is_additional_time, 0);
 				}
-				else if (state->is_additional_time == 0) {
+				else {
 					return TIME_OUT_AND_MOVE_NOT_FOUND;
 				}
 
 			}
 			else {
 				fprintf(stderr, "TIME CHECKER ELSE-------\n");
-				state->percentage = 100;
-				state->is_computation_complete = 1;
+				InterlockedExchange8(&state->percentage, 100);
+				InterlockedExchange8(&state->is_computation_complete, 1);
 
 				return TIME_OUT_AND_MOVE_FOUND;
 			}
@@ -384,6 +404,7 @@ static SearchCode dfs_greedy_direct(AIState* state, Dictionary* dict, GameField*
 		*counter = 0;
 	}
 	(*counter)++;
+
 	iteration->path.cells[iteration->path.len++] = (WordCell){ y, x, field->grid[y][x].letter };
 	visited[y][x] = 1;
 
@@ -440,28 +461,26 @@ static SearchCode dfs_greedy_rev(AIState* state, Dictionary* dict, GameField* fi
 	if (*counter % 256 == 0) {
 		unsigned long long now = GetTickCount64();
 		if (now >= state->end_time) {
-			if (top_moves[0].word_len == 0 && state->is_move_found == 0) { 
-				//ÓÁÐÀÒÜ ÈÇÌÅÍÅÍÈÅ is_move_found Â DFS, ÑÄÅËÀÒÜ ÏÐÎÂÅÐÊÓ top_moves[0].path.len != 0. ÄËß ÒÎÃÎ, ×ÒÎÁÛ ÌÈÍÈÌÀÊÑ ÍÅ ÏÐÎÑÈË ÄÎÏ ÂÐÅÌß ÊÎÃÄÀ ÕÎÄ ÁÛË ÍÀÉÄÅÍ Â ÄÐÓÃÈÕ ÂÅÒÊÀÕ, ÌÛ ÄÎÏÎËÍÈÒÅËÜÍÎ ÏÎÂÅÐßÅÌ is_move_found == 0 
-				//(Äëÿ æàäíîãî àëãîðèòìà ýòà ïðîñòî ëèøíÿÿ ïðîâåðêà, ò.ê. óñëîâèå is_move_found áóäåò âñåãäà ñîâïàäàòü ñ òåì, åñòü ëè ÷òî-òî â top_moves[0], íî äëÿ ñîâìåñòèìîñòè ñ ìèíèìàêñîì ëó÷øå ñäåëàòü òàê).
+			//fprintf(stderr, "iteration time: %llu\n", GetTickCount64());
+			if (top_moves[0].word_len == 0 && state->is_move_found == 0) {
 				fprintf(stderr, "TIME CHECKER-------\n");
-				state->is_computation_complete = 1; //but is_move_found is still 0, so we can check this situation in main loop and request additional time
-
+				InterlockedExchange8(&state->is_computation_complete, 1); //but is_move_found is still 0, so we can check this situation in main loop and request additional time
 				WaitForSingleObject(state->additional_time_event, INFINITE);
-				state->is_computation_complete = 0;
+				InterlockedExchange8(&state->is_computation_complete, 0);
 
 				if (state->is_additional_time == 1) {
 					state->end_time = GetTickCount64() + state->time_limit;
-					state->is_additional_time = 0;
+					InterlockedExchange8(&state->is_additional_time, 0);
 				}
-				else if (state->is_additional_time == 0) {
+				else {
 					return TIME_OUT_AND_MOVE_NOT_FOUND;
 				}
-			
+
 			}
 			else {
 				fprintf(stderr, "TIME CHECKER ELSE-------\n");
-				state->percentage = 100;
-				state->is_computation_complete = 1;
+				InterlockedExchange8(&state->percentage, 100);
+				InterlockedExchange8(&state->is_computation_complete, 1);
 
 				return TIME_OUT_AND_MOVE_FOUND;
 			}
@@ -469,6 +488,7 @@ static SearchCode dfs_greedy_rev(AIState* state, Dictionary* dict, GameField* fi
 		*counter = 0;
 	}
 	(*counter)++;
+
 	//add new letter to path, check if this prefix is in trie, if its not - return, otherwise we have to check whether this new letter has the is_end_of_the_word flag
 	iteration->path.cells[iteration->path.len++] = (WordCell){ y, x, field->grid[y][x].letter }; 
 	visited[y][x] = 1;
@@ -485,21 +505,7 @@ static SearchCode dfs_greedy_rev(AIState* state, Dictionary* dict, GameField* fi
 	//if we found reverse prefix, try to find all word 
 
 	if (dict_reverse_word_exists(dict, prefix)) {
-		//fprintf(stderr, "prefix: %s\n", prefix);
 		rotate_path(&iteration->path);
-		//int dy[] = { -1, 1, 0, 0 };
-		//int dx[] = { 0, 0, -1, 1 };
-		//for (int i = 0; i < 4; i++) {
-		//	//starting points for dfs_direct() - cells around placed letter
-		//	int newY = iteration->y + dy[i]; //ÊÀÊÎÃÎ ÕÅÐÀ ÎÍ ÝÒÎ ÏÐÎÏÓÑÒÈ?????????? (;)
-		//	int newX = iteration->x + dx[i];
-		//	//fprintf(stderr, "(STARTING %d %d)    NEW -%d %d\n", iteration->y, iteration->x, newY, newX);
-		//	if (is_cell_coordinates_valid(field, newY, newX) && !visited[newY][newX] && !is_cell_empty(field, newY, newX)) {
-		//		SearchCode res = dfs_greedy_direct(state, dict, field, game_copy, visited, iteration, top_moves, newY, newX, counter);
-		//		if (res == TIME_OUT_AND_MOVE_FOUND || res == TIME_OUT_AND_MOVE_NOT_FOUND) return res;
-		//	}
-		//}
-		
 		//starting point for dfs_direct() - the placed letter, candidate for which the algorithm tries to find words (For example, if we have found "tnomer" reversed prefix, after rotation wo-
 		//rd part "remont" will be already in this word (to be precise in the iteration->path), so we try to continue it from 't' letter)
 		//but we need to "remove" (by simply decreasing path.len) this 't' from the word and then add it again in the first call of dfs_DIRECT
@@ -528,7 +534,7 @@ static SearchCode dfs_greedy_rev(AIState* state, Dictionary* dict, GameField* fi
 }
 
 
-//serch all possible moves 
+//search all possible moves 
 static SearchCode greedy_algorithm(Dictionary* dict, Game* game_copy, AIState* state, Move top_moves[], int* counter) {
 	GameField* field = game_get_field(game_copy);
 	if (field == NULL) {
@@ -555,33 +561,34 @@ static SearchCode greedy_algorithm(Dictionary* dict, Game* game_copy, AIState* s
 	for (int i = 0; i < count; i++) {
 		for (int let = 0; let < 33; let++) {
 			//progress
-			state->percentage = ((i * 33 + let) * 100) / total_combinations;
+			unsigned char new_perc_val = ((i * 33 + let) * 100) / total_combinations;
+			InterlockedExchange8(&state->percentage, new_perc_val);
 
 			//check time limit, value should be divisible by 2, since in this case the compiler optimizes it to bit mask
 			if (*counter % 256 == 0) {
 				unsigned long long now = GetTickCount64();
-				/*fprintf(stderr, "now=%llu end_time=%llu diff=%lld if (now >= state->end_time) : %d\n",
-					now, state->end_time, (long long)(state->end_time - now), now >= state->end_time);*/
 				if (now >= state->end_time) {
-					fprintf(stderr, "iteration time: %llu\n", now);
+					//fprintf(stderr, "iteration time: %llu\n", GetTickCount64());
 					if (top_moves[0].word_len == 0 && state->is_move_found == 0) {
-						state->is_computation_complete = 1; //but is_move_found is still 0, so we can check this situation in main loop and request additional time
-						fprintf(stderr, "Wait for SO\n");
+						fprintf(stderr, "TIME CHECKER-------\n");
+						InterlockedExchange8(&state->is_computation_complete, 1); //but is_move_found is still 0, so we can check this situation in main loop and request additional time
 						WaitForSingleObject(state->additional_time_event, INFINITE);
+						InterlockedExchange8(&state->is_computation_complete, 0);
 
 						if (state->is_additional_time == 1) {
 							state->end_time = GetTickCount64() + state->time_limit;
-							state->is_computation_complete = 0;
-							state->is_additional_time = 0;
+							InterlockedExchange8(&state->is_additional_time, 0);
 						}
-						else if (state->is_additional_time == 0) {
+						else {
 							return TIME_OUT_AND_MOVE_NOT_FOUND;
 						}
 
 					}
 					else {
 						fprintf(stderr, "TIME CHECKER ELSE-------\n");
-						state->percentage = 100;
+						InterlockedExchange8(&state->percentage, 100);
+						InterlockedExchange8(&state->is_computation_complete, 1);
+
 						return TIME_OUT_AND_MOVE_FOUND;
 					}
 				}
@@ -611,32 +618,7 @@ static SearchCode greedy_algorithm(Dictionary* dict, Game* game_copy, AIState* s
 			field->grid[y][x].letter = '\0'; //unlike easy level, we continue until all possible cells have been checked or timeout has expired (and move has been found)
 		}
 	}
-	//try all candidates
-	
-	
-	//state->percentage = 5;
 
-	//int y = 3;
-	//int x = 0;
-	//field->grid[y][x].letter = 'ò';
-
-	////save letter and y/x for access in recursion
-	//iteration.letter = 'ò';
-	//iteration.y = y;
-	//iteration.x = x;
-
-	//bool visited[FIELD_SIZE][FIELD_SIZE] = { 0 };
-	//SearchCode res = dfs_greedy_rev(state, dict, field, game_copy, visited, &iteration, top_moves, y, x, counter);
-	//if (res == TIME_OUT_AND_MOVE_NOT_FOUND) {
-	//	fprintf(stderr, "TIME_OUT_AND_MOVE_NOT_FOUND\n");
-	//	return res;
-	//}
-	//else if (res == TIME_OUT_AND_MOVE_FOUND) {
-	//	fprintf(stderr, "TIME_OUT_AND_MOVE_FOUND\n");
-	//	return res;
-	//}
-	//field->grid[y][x].letter = '\0'; //unlike easy level, we continue until all possible cells have been checked or timeout has expired (and move has been found)
-	
 	if (top_moves[0].word_len != 0) {
 		return MOVE_FOUND;
 	}
@@ -658,14 +640,16 @@ static void ai_mid(Dictionary* dict, Game* game_copy, AIState* state) {
 	SearchCode res = greedy_algorithm(dict, game_copy, state, top_moves, &counter);
 
 	if (res == TIME_OUT_AND_MOVE_FOUND || res == MOVE_FOUND) {
+		EnterCriticalSection(&state->critical_section);
 		state->best_move = top_moves[0];
-		state->percentage = 100;
-		state->is_move_found = 1;
+		LeaveCriticalSection(&state->critical_section);
+		InterlockedExchange8(&state->percentage, 100);
+		InterlockedExchange8(&state->is_move_found, 1);
 	}
 	else {
-		state->gave_up = 1;
+		InterlockedExchange8(&state->gave_up, 1);
 	}
-	state->is_computation_complete = 1;
+	InterlockedExchange8(&state->is_computation_complete, 1);
 }
 
 
@@ -799,13 +783,10 @@ static void ai_high(Dictionary* dict, Game* game_copy, AIState* state) {
 		fprintf(stderr, "score: %d\n", score);
 		if (score > best_score) {
 			best_score = score;
+			EnterCriticalSection(&state->critical_section);
 			state->best_move = top_moves[i];
-			fprintf(stderr, "New best word: ");
-			for (int i = 0; i < state->best_move.word_len; i++) {
-				fprintf(stderr, "%c", state->best_move.word[i].letter);
-			}
-			fprintf(stderr, "\n");
-			state->is_move_found = 1;
+			LeaveCriticalSection(&state->critical_section);
+			InterlockedExchange8(&state->is_move_found, 1);
 		}
 		game_undo_generated_move(game_copy, top_moves[i]);
 
@@ -819,13 +800,16 @@ static void ai_high(Dictionary* dict, Game* game_copy, AIState* state) {
 			}
 			else {
 				fprintf(stderr, "ai_hard() timeout and move is not found\n");
-				state->gave_up = 1;
+				InterlockedExchange8(&state->gave_up, 1);
 				break;
 			}
 		}
 	}
 	fprintf(stderr, "END\n");
-	state->is_computation_complete = 1;
+	if (state->is_move_found == 0) {
+		InterlockedExchange8(&state->gave_up, 1);
+	}
+	InterlockedExchange8(&state->is_computation_complete, 1);
 }
 
 
@@ -908,6 +892,12 @@ AIState* ai_state_init() {
 	}
 
 	state->additional_time_event = CreateEvent(NULL, FALSE, FALSE, NULL); // event for thread waiting
+
+	if (!InitializeCriticalSectionAndSpinCount(&state->critical_section, 4000)) {
+		fprintf(stderr, "Îøèáêà ïðè èíèöèàëèçàöèè CRITICAL_SECTION\n");
+		return NULL;
+	}
+
 	state->percentage = 0;
 	state->is_move_found = 0;
 	fprintf(stderr, "STATE INIT-----\n");
@@ -936,11 +926,11 @@ StatusCode ai_set_stop(AIState* state) {
 
 StatusCode ai_give_additional_time(AIState* state, bool n, int additional_time) {
 	if (state == NULL) return ERROR_NULL_POINTER;
-	if (!n) state->is_additional_time = 0;
+	if (!n) InterlockedExchange8(&state->is_additional_time, 0);
 	else {
-		state->is_additional_time = 1;
-		state->time_limit = additional_time;
-		state->is_computation_complete = 0;
+		InterlockedExchange8(&state->is_additional_time, 1);
+		InterlockedExchange8(&state->time_limit, additional_time);
+		InterlockedExchange8(&state->is_computation_complete, 0);
 	}
 	return SUCCESS;
 }
@@ -985,6 +975,10 @@ unsigned char ai_get_percentage(AIState* state) {
 
 HANDLE ai_get_handle(AIState* state) {
 	return state->additional_time_event;
+}
+
+CRITICAL_SECTION* ai_get_cs(AIState* state) {
+	return &state->critical_section;
 }
 
 Move* ai_get_move(AIState* state) {
