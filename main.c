@@ -9,7 +9,7 @@
 #include "ui.h"
 
 
-int functionfsd() {
+int main() {
 	SetConsoleCP(1251);
 	SetConsoleOutputCP(1251);
 	setlocale(LC_ALL, "Russian");
@@ -42,9 +42,16 @@ int functionfsd() {
 	SDL_Renderer* renderer = NULL;
 	SDL_Texture* Texture = NULL;
 
-	if (init(&window, &renderer) != SUCCESS) {
+	if (ui_init(&window, &renderer) != SUCCESS) {
 		SDL_Log("Unable to initialize program!\n");
 		exit(1);
+	}
+
+	bool f = true;
+
+	while (f) {
+		ui_handle_events();
+		ui_render();
 	}
 
 	bool f = 1;

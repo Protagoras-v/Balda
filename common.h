@@ -31,7 +31,7 @@
 #define MINIMAX_DEPTH 2
 
 //ui
-#define SCREEN_HEIGHT 1200
+#define SCREEN_HEIGHT 750   
 #define SCREEN_WIDTH 900
 
 

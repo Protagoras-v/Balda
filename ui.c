@@ -3,8 +3,10 @@
 
 #include "common.h"
 #include "status_codes.h"
+#include "ui.h"
 
-StatusCode init(SDL_Window** window, SDL_Renderer** renderer) {
+
+StatusCode ui_handle_input(SDL_Window** window, SDL_Renderer** renderer) {
 	if (SDL_Init(SDL_INIT_VIDEO) < 0) {
 		printf("SDL could not initialize! SDL_Error: %s\n", SDL_GetError());
 		return SDL_ERROR;
@@ -36,4 +38,47 @@ StatusCode init(SDL_Window** window, SDL_Renderer** renderer) {
 	}
 
 	return SUCCESS;
+}
+
+
+
+//--------------------------------------------------------------------------------------------------------------------------
+//-------------------------------------------------MAIN MENU EVENTS---------------------------------------------------------
+//--------------------------------------------------------------------------------------------------------------------------
+
+void event_mainmenu_mousemotion(SDL_Event e, AppState* screen) {
+
+}
+
+
+
+
+StatusCode ui_handle_events(SDL_Window* window, SDL_Renderer* render, AppState* screen, bool* f) {
+	SDL_Event e; 
+	while (SDL_PollEvent(&e)) {
+		if (e.type == SDL_QUIT) {
+			*f = false;
+		}
+		else {
+			switch (*screen) {
+			case SCREEN_MAIN:
+				if (e.type == SDL_MOUSEMOTION) {
+					event_mainmenu_mousemoution();
+				}
+				else if (e.type == SDL_MOUSEBUTTONDOWN) {
+					event_mainmenu_mouseclick_down();
+				}
+				else if (e.type == SDL_MOUSEBUTTONUP) {
+					event_mainmenu_mouseclick_up();
+				}
+				break;
+			case SCREEN_SETTINGS:
+				break;
+			case SCREEN_LEADERBOARD:
+				break;
+			case SCREEN_GAME:
+				break;
+			}
+		}
+	}
 }
