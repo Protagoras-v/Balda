@@ -496,10 +496,11 @@ int parse_command(Dictionary* dict, GameSettings* settings, Game** game, Leaderb
 }
 
 
-int main22222() {
+int main8476324873264() {
 	SetConsoleCP(1251);
 	SetConsoleOutputCP(1251);
 	setlocale(LC_ALL, "Russian");
+	
 
 	//зерно для генерации случайных чисел
 	srand(time(NULL));
@@ -651,7 +652,9 @@ int main22222() {
 	}
 
 	dict_destroy(dict);
-	game_destroy(&game);
+	if (game != NULL) {
+		game_destroy(&game);
+	}
 	game_leaderboard_destroy(lb);
 	free(settings);
 	return 0;

@@ -10,7 +10,8 @@
 #include <stdlib.h>
 #include <locale.h>
 
-
+#define MAX_UI_BUFFER_SIZE 50
+#define MAX_UI_UTF8_BUFFER_SIZE 2 * MAX_UI_BUFFER_SIZE //every cp1251 ru letter = 2 bytes in utf8
 
 #define MAX_WORD_LEN 26
 #define FIELD_SIZE 5
@@ -33,6 +34,8 @@
 //ui
 #define SCREEN_HEIGHT 750   
 #define SCREEN_WIDTH 900
+#define BTN_FONT_FILENAME "fonts/seenonim.ttf"
+#define HEADER_FONT_FILENAME "fonts/seenonim.ttf"
 
 
 #define MIN(a, b) (((a) < (b)) ? (a) : (b))
@@ -55,3 +58,5 @@ unsigned char to_lower(unsigned char c);
 void reverse_word(char* word);
 
 void WordCell_to_char(WordCell source[], char dest[], int word_len);
+
+void string_cp1251_to_utf8(unsigned char cp1251[], size_t cp_len, unsigned char utf8[], size_t utf8_len);

@@ -43,6 +43,10 @@ typedef enum {
 
 
     SDL_ERROR = 500,
+    SDL_OPEN_FONT_ERROR = 501,
+    SDL_SURFACE_ERROR = 503,
+    SDL_TEXTURE_ERROR,
+
 } StatusCode;
 
 typedef enum {

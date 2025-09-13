@@ -42,18 +42,27 @@ int main() {
 	SDL_Renderer* renderer = NULL;
 	SDL_Texture* Texture = NULL;
 
+	ScreenContext context;
+	context.current_screen = SCREEN_MAIN;
+
 	if (ui_init(&window, &renderer) != SUCCESS) {
 		SDL_Log("Unable to initialize program!\n");
 		exit(1);
 	}
 
+
+	MainScreen main_screen;
+
+	if (ui_set_screen_context(renderer, &context, &main_screen) != SUCCESS) {
+		return 1;
+	}
+
 	bool f = true;
 
 	while (f) {
-		ui_handle_events();
-		ui_render();
+		ui_handle_events(window, renderer, &context, &main_screen, &f);
+		ui_render(window, renderer, context, main_screen);
 	}
 
-	bool f = 1;
 	return 0;
 }
