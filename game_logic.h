@@ -96,11 +96,15 @@ bool game_is_enough_score_for_lb(Game* game, Leaderboard* lb);
 // -----------------------------------------------
 GameSettings* game_init_settings();
 
-StatusCode game_set_max_time_waiting(GameSettings* settings, int time);
+StatusCode game_set_timelimit(GameSettings* settings, int time);
 
 StatusCode game_set_difficulty(GameSettings* settings, int difficulty);
 
 StatusCode game_set_first_player(GameSettings* settings, int first_player);
+
+unsigned int game_get_settings_difficulty(GameSettings* settings);
+unsigned int game_get_settings_timelimit(GameSettings* settings);
+unsigned int game_get_settings_first_player(GameSettings* settings);
 
 void print_settings(GameSettings* settings);
 

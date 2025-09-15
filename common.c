@@ -6,9 +6,28 @@ bool is_it_ru_letter(const unsigned char c) {
 		(c >= 224 && c <= 255) || //à-ÿ
 		(c == 168) || //¨
 		(c == 184)) { //¸ 
-		return 1;
+		return true;
 	}
-	return 0;
+	return false;
+}
+
+bool is_it_ru_utf8_letter(const unsigned char* c) {
+    if (c[2] != '\0' || c[1] == '\0') return false;
+    unsigned char c1 = (unsigned char)c[0];
+    unsigned char c2 = (unsigned char)c[1];
+
+    // À-ß
+    if (c1 == 0xD0 && c2 >= 0x90 && c2 <= 0x9F) return true;
+    // à-ï
+    if (c1 == 0xD0 && c2 >= 0xB0 && c2 <= 0xBF) return true;
+    // ð-ÿ
+    if (c1 == 0xD1 && c2 >= 0x80 && c2 <= 0x8F) return true;
+    // ¨
+    if (c1 == 0xD0 && c2 == 0x81) return true;
+    // ¸
+    if (c1 == 0xD1 && c2 == 0x91) return true;
+
+    return false;
 }
 
 bool is_word_valid(unsigned char* word) {
@@ -55,7 +74,6 @@ void WordCell_to_char(WordCell source[], char dest[], int word_len) {
 int letter_cp1251_to_utf8(unsigned char cp, unsigned char out[2]) {
     if (cp == 0) { 
         out[0] = 0x0;
-        out[1] = 0x0;
         return 0; 
     }
     // ASCII == UTF8
@@ -141,7 +159,11 @@ int letter_cp1251_to_utf8(unsigned char cp, unsigned char out[2]) {
 }
 
 void string_cp1251_to_utf8(unsigned char cp1251[], size_t cp_len, unsigned char utf8[], size_t utf8_len) {
-    for (int i = 0, j = 0; i < cp_len && j < utf8_len; i++, j+=2) {
-        if (!letter_cp1251_to_utf8(cp1251[i], &utf8[j])) break;
+    int j = 0;
+    for (int i = 0; i < cp_len; i++) {
+        int symb_size = letter_cp1251_to_utf8(cp1251[i], &utf8[j]);
+        if (symb_size == 0) break;
+        else j += symb_size;
     }
+    utf8[j] = '\0';
 }

@@ -972,7 +972,7 @@ GameSettings* game_init_settings() {
 }
 
 //ms
-StatusCode game_set_max_time_waiting(GameSettings* settings, int time) {
+StatusCode game_set_timelimit(GameSettings* settings, int time) {
 	if (settings == NULL) return ERROR_NULL_POINTER;
 
 	if (time < 1) return GAME_INVALID_TIME;
@@ -994,6 +994,28 @@ StatusCode game_set_first_player(GameSettings* settings, int first_player) {
 	if (first_player < 1 || first_player > 2) return GAME_INVALID_FIRST_PLAYER;
 	else settings->first_player = first_player;
 	return SUCCESS;
+}
+
+unsigned int game_get_settings_difficulty(GameSettings* settings) {
+	if (settings == NULL) {
+		fprintf(stderr, "NULL â game_get_settings_difficulty()\n");
+		return -1;
+	}
+	return settings->difficulty;
+}
+unsigned int game_get_settings_timelimit(GameSettings* settings) {
+	if (settings == NULL) {
+		fprintf(stderr, "NULL â game_get_settings_timelimit()\n");
+		return -1;
+	}
+	return settings->time_limit;
+}
+unsigned int game_get_settings_first_player(GameSettings* settings) {
+	if (settings == NULL) {
+		fprintf(stderr, "NULL â game_get_settings_first_player()\n");
+		return -1;
+	}
+	return settings->first_player;
 }
 
 

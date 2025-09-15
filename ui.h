@@ -3,6 +3,7 @@
 #include <SDL.h>
 #include <SDL_ttf.h>
 #include "common.h"
+#include "game_logic.h"
 
 typedef enum {
 	SCREEN_MAIN,
@@ -17,32 +18,78 @@ typedef struct Button {
 
 	SDL_Texture* texture;
 
-	unsigned int isHoverable : 1;
-	unsigned int isHovered : 1;
-	unsigned int isClicked : 1;
-	unsigned int isActive : 1;
+	unsigned int is_hoverable : 1;
+	unsigned int is_hovered : 1;
+	unsigned int is_clicked : 1;
+	unsigned int is_active : 1;
 } Button;
+
+typedef struct InputField {
+	SDL_Rect rect;
+
+	unsigned int is_there_new_letter : 1;
+	char new_letter;
+	char text[MAX_UI_BUFFER_SIZE]; //cp1251
+
+	int cursorPos;
+	unsigned int is_active : 1;
+	unsigned int is_hovered : 1;
+	unsigned int is_clicked : 1;
+} InputField;
+
 
 typedef struct MainScreen {
 	SDL_Texture* header;
-	Button btn_main_new_game;
-	Button btn_main_load_game;
-	Button btn_main_to_settings;
-	Button btn_main_to_leaderboard;
-	Button btn_main_exit;
+	Button btn_new_game;
+	Button btn_load_game;
+	Button btn_to_settings;
+	Button btn_to_leaderboard;
+	Button btn_exit;
 } MainScreen;
+
+typedef struct SettingsScreen {
+	SDL_Texture* header;
+
+	Button btn_to_main;
+
+	Button btn_easy;
+	Button btn_mid;
+	Button btn_hard;
+
+	SDL_Texture* first_player;
+	Button btn_p1;
+	Button btn_p2;
+
+	SDL_Texture* time_limit;
+	InputField timelimit_field;
+} SettingsScreen;
 
 typedef struct ScreenContext {
 	TTF_Font* btn_font;
 	TTF_Font* header_font;
+	TTF_Font* input_field_font;
 	Screen current_screen;
 } ScreenContext;
 
 
 StatusCode ui_init(SDL_Window** window, SDL_Renderer** renderer);
 
-StatusCode ui_handle_events(SDL_Window* window, SDL_Renderer* render, ScreenContext* context, MainScreen* main_screen, bool* f);
+StatusCode ui_handle_events(SDL_Renderer* render, ScreenContext context,
+	MainScreen* main_screen,
+	SettingsScreen* sett_screen);
 
-StatusCode ui_render(SDL_Window* window, SDL_Renderer* renderer, ScreenContext context, MainScreen main_screen);
+StatusCode ui_update_logic(ScreenContext* context, 
+	MainScreen* main_screen, 
+	SettingsScreen* sett_screen, 
+	//logic
+	GameSettings* settings,
+	bool* f);
 
-StatusCode ui_set_screen_context(SDL_Renderer* renderer, ScreenContext* context, MainScreen* main_screen);
+StatusCode ui_render(SDL_Renderer* renderer, ScreenContext context,
+	MainScreen main_screen,
+	SettingsScreen settings_screen);
+
+StatusCode ui_set_screen_context(SDL_Renderer* renderer, ScreenContext* context,
+	MainScreen* main_screen,
+	SettingsScreen* screen_settings,
+	GameSettings* game_settings);

@@ -10,8 +10,6 @@
 #include <stdlib.h>
 #include <locale.h>
 
-#define MAX_UI_BUFFER_SIZE 50
-#define MAX_UI_UTF8_BUFFER_SIZE 2 * MAX_UI_BUFFER_SIZE //every cp1251 ru letter = 2 bytes in utf8
 
 #define MAX_WORD_LEN 26
 #define FIELD_SIZE 5
@@ -32,10 +30,18 @@
 #define MINIMAX_DEPTH 2
 
 //ui
+#define MAX_UI_BUFFER_SIZE 50 //bufer size for cp1251 text like a btn.text
+#define MAX_UI_UTF8_BUFFER_SIZE 2 * MAX_UI_BUFFER_SIZE //every cp1251 ru letter = 2 bytes in utf8
+
 #define SCREEN_HEIGHT 750   
 #define SCREEN_WIDTH 900
+
 #define BTN_FONT_FILENAME "fonts/seenonim.ttf"
+#define BTN_FONT_SIZE 22
 #define HEADER_FONT_FILENAME "fonts/seenonim.ttf"
+#define HEADER_FONT_SIZE 34
+#define INPUT_FONT_FILENAME "fonts/seenonim.ttf"
+#define INPUT_FONT_SIZE 22
 
 
 #define MIN(a, b) (((a) < (b)) ? (a) : (b))
@@ -50,6 +56,7 @@ typedef struct WordCell {
 
 
 bool is_it_ru_letter(const unsigned char c);
+bool is_it_ru_utf8_letter(const unsigned char* c);
 
 bool is_word_valid(const unsigned char* word);
 
