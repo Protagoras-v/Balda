@@ -35,7 +35,7 @@
 #define MAX_UI_UTF8_BUFFER_SIZE 2 * MAX_UI_BUFFER_SIZE //every cp1251 ru letter = 2 bytes in utf8
 
 #define SCREEN_HEIGHT 750   
-#define SCREEN_WIDTH 900
+#define SCREEN_WIDTH 1200 // было 900
 
 #define BTN_FONT_FILENAME "fonts/seenonim.ttf"
 #define BTN_FONT_SIZE 22
@@ -45,6 +45,8 @@
 #define INPUT_FONT_SIZE 22
 #define TEXT_FONT_FILENAME "fonts/seenonim.ttf"
 #define TEXT_FONT_SIZE 22
+#define CELL_FONT_FILENAME "fonts/seenonim.ttf"
+#define CELL_FONT_SIZE 22
 
 
 #define MIN(a, b) (((a) < (b)) ? (a) : (b))

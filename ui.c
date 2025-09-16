@@ -12,6 +12,8 @@
 #define BLUE 0, 94, 102, 0
 #define GRAY 184, 184, 184, 0
 #define GRAY_HOVERED 222, 222, 222, 0
+#define YELLOW 255, 255, 0, 0
+#define PURPLE 225, 28, 255, 0
 
 
 static int get_cursor_padding(TTF_Font* font, const char* text, int len) {
@@ -86,6 +88,7 @@ StatusCode ui_set_screen_context(
 	MainScreen* main_screen,
 	SettingsScreen* sett_screen,
 	LeaderboardScreen* lb_screen,
+	GameScreen* g_screen,
 	GameSettings* game_settings) {
 	context->btn_font = TTF_OpenFont(BTN_FONT_FILENAME, BTN_FONT_SIZE);
 	if (context->btn_font == NULL) {
@@ -103,8 +106,13 @@ StatusCode ui_set_screen_context(
 		return UI_SDL_OPEN_FONT_ERROR;
 	}
 	context->text_font = TTF_OpenFont(TEXT_FONT_FILENAME, TEXT_FONT_SIZE);
-	if (context->input_field_font == NULL) {
+	if (context->text_font == NULL) {
 		fprintf(stderr, "Ошибка при открытии шрифта %s, TTF_Error: %s\n", TEXT_FONT_FILENAME, TTF_GetError());
+		return UI_SDL_OPEN_FONT_ERROR;
+	}
+	context->cell_font = TTF_OpenFont(CELL_FONT_FILENAME, CELL_FONT_SIZE);
+	if (context->cell_font == NULL) {
+		fprintf(stderr, "Ошибка при открытии шрифта %s, TTF_Error: %s\n", CELL_FONT_FILENAME, TTF_GetError());
 		return UI_SDL_OPEN_FONT_ERROR;
 	}
 
@@ -112,10 +120,7 @@ StatusCode ui_set_screen_context(
 	main_screen->header = createTextureFromText(renderer, context->header_font, "Балда");
 
 	strncpy_s(main_screen->btn_new_game.text, MAX_UI_BUFFER_SIZE, "Новая игра", MAX_UI_BUFFER_SIZE);
-	main_screen->btn_new_game.rect.x = 312;
-	main_screen->btn_new_game.rect.y = 150;
-	main_screen->btn_new_game.rect.w = 275;
-	main_screen->btn_new_game.rect.h = 75;
+	main_screen->btn_new_game.rect = (SDL_Rect) {SCREEN_WIDTH / 2 - 137, 150, 275, 75};
 	main_screen->btn_new_game.is_active = 0;
 	main_screen->btn_new_game.is_hoverable = 1;
 	main_screen->btn_new_game.is_hovered = 0;
@@ -126,10 +131,7 @@ StatusCode ui_set_screen_context(
 	}
 	
 	strncpy_s(main_screen->btn_load_game.text, MAX_UI_BUFFER_SIZE,  "Загрузить", MAX_UI_BUFFER_SIZE);
-	main_screen->btn_load_game.rect.x = 312;
-	main_screen->btn_load_game.rect.y = 250;
-	main_screen->btn_load_game.rect.w = 275;
-	main_screen->btn_load_game.rect.h = 75;
+	main_screen->btn_load_game.rect = (SDL_Rect){ SCREEN_WIDTH / 2 - 137, 250, 275, 75 };
 	main_screen->btn_load_game.is_active = 0;
 	main_screen->btn_load_game.is_hoverable = 1;
 	main_screen->btn_load_game.is_hovered = 0;
@@ -140,10 +142,7 @@ StatusCode ui_set_screen_context(
 	}
 
 	strncpy_s(main_screen->btn_to_settings.text, MAX_UI_BUFFER_SIZE, "Настройки", MAX_UI_BUFFER_SIZE);
-	main_screen->btn_to_settings.rect.x = 312;
-	main_screen->btn_to_settings.rect.y = 350;
-	main_screen->btn_to_settings.rect.w = 275;
-	main_screen->btn_to_settings.rect.h = 75;
+	main_screen->btn_to_settings.rect = (SDL_Rect){ SCREEN_WIDTH / 2 - 137, 350, 275, 75 };
 	main_screen->btn_to_settings.is_active = 0;
 	main_screen->btn_to_settings.is_hoverable = 1;
 	main_screen->btn_to_settings.is_hovered = 0;
@@ -154,10 +153,7 @@ StatusCode ui_set_screen_context(
 	}
 
 	strncpy_s(main_screen->btn_to_leaderboard.text, MAX_UI_BUFFER_SIZE, "Таблица лидеров", MAX_UI_BUFFER_SIZE);
-	main_screen->btn_to_leaderboard.rect.x = 312;
-	main_screen->btn_to_leaderboard.rect.y = 450;
-	main_screen->btn_to_leaderboard.rect.w = 275;
-	main_screen->btn_to_leaderboard.rect.h = 75;
+	main_screen->btn_to_leaderboard.rect = (SDL_Rect){ SCREEN_WIDTH / 2 - 137, 450, 275, 75 };
 	main_screen->btn_to_leaderboard.is_active = 0;
 	main_screen->btn_to_leaderboard.is_hoverable = 1;
 	main_screen->btn_to_leaderboard.is_hovered = 0;
@@ -168,10 +164,7 @@ StatusCode ui_set_screen_context(
 	}
 
 	strncpy_s(main_screen->btn_exit.text, MAX_UI_BUFFER_SIZE, "Выход", MAX_UI_BUFFER_SIZE);
-	main_screen->btn_exit.rect.x = 312;
-	main_screen->btn_exit.rect.y = 550;
-	main_screen->btn_exit.rect.w = 275;
-	main_screen->btn_exit.rect.h = 75;
+	main_screen->btn_exit.rect = (SDL_Rect){ SCREEN_WIDTH / 2 - 137, 550, 275, 75 };
 	main_screen->btn_exit.is_active = 0;
 	main_screen->btn_exit.is_hoverable = 1;
 	main_screen->btn_exit.is_hovered = 0;
@@ -203,10 +196,7 @@ StatusCode ui_set_screen_context(
 	}
 
 	strncpy_s(sett_screen->btn_easy.text, MAX_UI_BUFFER_SIZE, "Легко", MAX_UI_BUFFER_SIZE);
-	sett_screen->btn_easy.rect.x = 100;
-	sett_screen->btn_easy.rect.y = 150;
-	sett_screen->btn_easy.rect.w = 200;
-	sett_screen->btn_easy.rect.h = 75;
+	sett_screen->btn_easy.rect = (SDL_Rect){250, 150, 200, 75 };
 	sett_screen->btn_easy.is_active = diff == 1 ? 1 : 0;
 	sett_screen->btn_easy.is_hoverable = 0;
 	sett_screen->btn_easy.is_hovered = 0;
@@ -217,10 +207,7 @@ StatusCode ui_set_screen_context(
 	}
 
 	strncpy_s(sett_screen->btn_mid.text, MAX_UI_BUFFER_SIZE, "Нормально", MAX_UI_BUFFER_SIZE);
-	sett_screen->btn_mid.rect.x = 350;
-	sett_screen->btn_mid.rect.y = 150;
-	sett_screen->btn_mid.rect.w = 200;
-	sett_screen->btn_mid.rect.h = 75;
+	sett_screen->btn_mid.rect = (SDL_Rect){ 500, 150, 200, 75 };
 	sett_screen->btn_mid.is_active = diff == 2 ? 1 : 0;
 	sett_screen->btn_mid.is_hoverable = 0;
 	sett_screen->btn_mid.is_hovered = 0;
@@ -231,10 +218,7 @@ StatusCode ui_set_screen_context(
 	}
 
 	strncpy_s(sett_screen->btn_hard.text, MAX_UI_BUFFER_SIZE, "Сложно", MAX_UI_BUFFER_SIZE);
-	sett_screen->btn_hard.rect.x = 600;
-	sett_screen->btn_hard.rect.y = 150;
-	sett_screen->btn_hard.rect.w = 200;
-	sett_screen->btn_hard.rect.h = 75;
+	sett_screen->btn_hard.rect = (SDL_Rect){750, 150, 200, 75 };
 	sett_screen->btn_hard.is_active = 0;
 	sett_screen->btn_hard.is_hoverable = 0;
 	sett_screen->btn_hard.is_hovered = 0;
@@ -251,10 +235,7 @@ StatusCode ui_set_screen_context(
 	}
 
 	strncpy_s(sett_screen->btn_p1.text, MAX_UI_BUFFER_SIZE, "Игрок", MAX_UI_BUFFER_SIZE);
-	sett_screen->btn_p1.rect.x = 350;
-	sett_screen->btn_p1.rect.y = 250;
-	sett_screen->btn_p1.rect.w = 200;
-	sett_screen->btn_p1.rect.h = 75;
+	sett_screen->btn_p1.rect = (SDL_Rect){ 500, 250, 200, 75 };
 	sett_screen->btn_p1.is_active = frst_player == 1 ? 1 : 0;
 	sett_screen->btn_p1.is_hoverable = 0;
 	sett_screen->btn_p1.is_hovered = 0;
@@ -265,10 +246,7 @@ StatusCode ui_set_screen_context(
 	}
 
 	strncpy_s(sett_screen->btn_p2.text, MAX_UI_BUFFER_SIZE, "Компьютер", MAX_UI_BUFFER_SIZE);
-	sett_screen->btn_p2.rect.x = 600;
-	sett_screen->btn_p2.rect.y = 250;
-	sett_screen->btn_p2.rect.w = 200;
-	sett_screen->btn_p2.rect.h = 75;
+	sett_screen->btn_p2.rect = (SDL_Rect){ 750, 250, 200, 75 };
 	sett_screen->btn_p2.is_active = frst_player == 2 ? 1 : 0;
 	sett_screen->btn_p2.is_hoverable = 0;
 	sett_screen->btn_p2.is_hovered = 0;
@@ -283,10 +261,7 @@ StatusCode ui_set_screen_context(
 	if (sett_screen->first_player == NULL) {
 		return UI_SDL_TEXTURE_ERROR;
 	}
-	sett_screen->timelimit_field.rect.x = 575;
-	sett_screen->timelimit_field.rect.y = 362;
-	sett_screen->timelimit_field.rect.w = 225;
-	sett_screen->timelimit_field.rect.h = 50;
+	sett_screen->timelimit_field.rect = (SDL_Rect){ 725, 362, 225, 55 };
 	sett_screen->timelimit_field.is_active = 0;
 	sett_screen->timelimit_field.is_hovered = 0; 
 	sett_screen->timelimit_field.is_clicked = 0;
@@ -311,6 +286,56 @@ StatusCode ui_set_screen_context(
 		return UI_SDL_TEXTURE_ERROR;
 	}
 
+
+	//game_screen
+	g_screen->cursor_x = 2;
+	g_screen->cursor_y = 2;
+	g_screen->computer = createTextureFromText(renderer, context->text_font, "Компьютер");
+	g_screen->player = createTextureFromText(renderer, context->text_font, "Игрок");
+
+	strncpy_s(g_screen->btn_up.text, MAX_UI_BUFFER_SIZE, "Вверх", MAX_UI_BUFFER_SIZE);
+	g_screen->btn_up.rect.x = SCREEN_WIDTH/2 - 25;
+	g_screen->btn_up.rect.y = 560;
+	g_screen->btn_up.rect.w = 50;
+	g_screen->btn_up.rect.h = 50;
+	g_screen->btn_up.is_active = 0;
+	g_screen->btn_up.is_hoverable = 1;
+	g_screen->btn_up.is_hovered = 0;
+	g_screen->btn_up.is_clicked = 0; 
+	g_screen->btn_up.texture = NULL;
+
+	strncpy_s(g_screen->btn_down.text, MAX_UI_BUFFER_SIZE, "Вниз", MAX_UI_BUFFER_SIZE);
+	g_screen->btn_down.rect.x = SCREEN_WIDTH / 2 - 25;
+	g_screen->btn_down.rect.y = 680;
+	g_screen->btn_down.rect.w = 50;
+	g_screen->btn_down.rect.h = 50;
+	g_screen->btn_down.is_active = 0;
+	g_screen->btn_down.is_hoverable = 1;
+	g_screen->btn_down.is_hovered = 0;
+	g_screen->btn_down.is_clicked = 0; //добавить выбор в зависимости от настроек
+	g_screen->btn_down.texture = NULL;
+
+	strncpy_s(g_screen->btn_left.text, MAX_UI_BUFFER_SIZE, "Влево", MAX_UI_BUFFER_SIZE);
+	g_screen->btn_left.rect.x = SCREEN_WIDTH / 2 - 60 - 25;
+	g_screen->btn_left.rect.y = 620;
+	g_screen->btn_left.rect.w = 50;
+	g_screen->btn_left.rect.h = 50;
+	g_screen->btn_left.is_active = 0;
+	g_screen->btn_left.is_hoverable = 1;
+	g_screen->btn_left.is_hovered = 0;
+	g_screen->btn_left.is_clicked = 0; //добавить выбор в зависимости от настроек
+	g_screen->btn_left.texture = NULL;
+
+	strncpy_s(g_screen->btn_right.text, MAX_UI_BUFFER_SIZE, "Вправо", MAX_UI_BUFFER_SIZE);
+	g_screen->btn_right.rect.x = SCREEN_WIDTH / 2 + 60 - 25;
+	g_screen->btn_right.rect.y = 620;
+	g_screen->btn_right.rect.w = 50;
+	g_screen->btn_right.rect.h = 50;
+	g_screen->btn_right.is_active = 0;
+	g_screen->btn_right.is_hoverable = 1;
+	g_screen->btn_right.is_hovered = 0;
+	g_screen->btn_right.is_clicked = 0; //добавить выбор в зависимости от настроек
+	g_screen->btn_right.texture = NULL;
 
 	return SUCCESS;
 }
@@ -568,15 +593,58 @@ static void load_leaderboard(SDL_Renderer* renderer, ScreenContext context, Lead
 	}
 }
 
+static void load_game_screen(SDL_Renderer* renderer, ScreenContext context, GameScreen* g_screen, Game* game) {
+	int w, h;
+	game_get_field_size(game, &h, &w);
+	for (int y = 0; y < h; y++) {
+		for (int x = 0; x < w; x++) {
+			char letter[2] = { 0 };
+			game_get_cell_letter(game, y, x, &letter[0]);
+			if (letter[0] == '\0') {
+				g_screen->grid[y][x].texture = NULL;
+			}
+			else {
+				g_screen->grid[y][x].texture = createTextureFromText(renderer, context.cell_font, &letter);
+			}
+		}
+	}
+	//cursor
+	g_screen->grid[g_screen->cursor_y][g_screen->cursor_x].is_cursored = 1;
+
+	int p1 = 0;
+	int p2 = 0;
+	char p1_score[8], p2_score[8];
+	game_get_score(game, 1, p1_score);
+	game_get_score(game, 1, p2_score);
+	_itoa(p1, p1_score, 10);
+	_itoa(p2, p2_score, 10);
+
+	g_screen->computer_score = createTextureFromText(renderer, context.text_font, p2_score);
+	g_screen->player_score = createTextureFromText(renderer, context.text_font, p1_score);
+}
+
 static void ui_update_logic_main(
 	SDL_Renderer* renderer,
 	ScreenContext* context, 
 	MainScreen* main_screen,
 	LeaderboardScreen* lb_screen, 
+	GameScreen* g_screen,
+	Game** game,
+	Dictionary* dict, 
+	GameSettings* settings,
 	Leaderboard* lb, 
 	bool* f) 
 {
-	if (main_screen->btn_to_settings.is_clicked) {
+	if (main_screen->btn_new_game.is_clicked) {
+		main_screen->btn_new_game.is_clicked = 0;
+		*game = game_create(settings, dict);
+		if (*game == NULL) {
+			fprintf(stderr, "Ошибка при создании игры!\n");
+		}
+		load_game_screen(renderer, *context, g_screen, *game);
+		context->current_screen = SCREEN_GAME;
+	}
+	else if (main_screen->btn_to_settings.is_clicked) {
 		main_screen->btn_to_settings.is_clicked = 0;
 		context->current_screen = SCREEN_SETTINGS;
 	}
@@ -666,13 +734,16 @@ StatusCode ui_update_logic(
 	MainScreen* main_screen, 
 	SettingsScreen* sett_screen, 
 	LeaderboardScreen* lb_screen,
+	GameScreen* g_screen,
+	Game** game,
+	Dictionary* dict,
 	GameSettings* settings,
 	Leaderboard* lb,
 	bool* f) 
 {
 	switch (context->current_screen) {
 	case SCREEN_MAIN:
-		ui_update_logic_main(renderer, context, main_screen, lb_screen, lb, f);
+		ui_update_logic_main(renderer, context, main_screen, lb_screen, g_screen, game, dict, settings, lb, f);
 		break;
 	case SCREEN_SETTINGS:
 		ui_update_logic_settings(context, sett_screen, settings);
@@ -699,11 +770,13 @@ static void render_button(SDL_Renderer* renderer, Button btn) {
 	SDL_SetRenderDrawColor(renderer, BLUE);
 	SDL_RenderDrawRect(renderer, &btn.rect);
 
-	SDL_Rect text_rect = btn.rect;
-	SDL_QueryTexture(btn.texture, NULL, NULL, &text_rect.w, &text_rect.h);
-	text_rect.y = btn.rect.y + (btn.rect.h - text_rect.h) / 2;
-	text_rect.x = btn.rect.x + (btn.rect.w - text_rect.w) / 2;
-	SDL_RenderCopy(renderer, btn.texture, NULL, &text_rect);
+	if (btn.texture != NULL) {
+		SDL_Rect text_rect = btn.rect;
+		SDL_QueryTexture(btn.texture, NULL, NULL, &text_rect.w, &text_rect.h);
+		text_rect.y = btn.rect.y + (btn.rect.h - text_rect.h) / 2;
+		text_rect.x = btn.rect.x + (btn.rect.w - text_rect.w) / 2;
+		SDL_RenderCopy(renderer, btn.texture, NULL, &text_rect);
+	}
 }
 
 void render_input_field(SDL_Renderer* renderer, InputField field, ScreenContext context) {
@@ -749,7 +822,7 @@ void static ui_render_main(SDL_Renderer* renderer, ScreenContext context, MainSc
 
 	SDL_Rect text_rect;
 	SDL_QueryTexture(main_screen.header, NULL, NULL, &text_rect.w, &text_rect.h);
-	text_rect.x = 375;
+	text_rect.x = SCREEN_WIDTH / 2 - text_rect.w / 2;
 	text_rect.y = 50;
 	SDL_RenderCopy(renderer, main_screen.header, NULL, &text_rect);
 
@@ -769,7 +842,7 @@ void ui_render_settings(SDL_Renderer* renderer, ScreenContext context, SettingsS
 
 	SDL_Rect text_rect;
 	SDL_QueryTexture(settings_screen.header, NULL, NULL, &text_rect.w, &text_rect.h);
-	text_rect.x = 340;
+	text_rect.x = SCREEN_WIDTH / 2 - text_rect.w / 2;
 	text_rect.y = 50;
 	SDL_RenderCopy(renderer, settings_screen.header, NULL, &text_rect);
 
@@ -780,14 +853,14 @@ void ui_render_settings(SDL_Renderer* renderer, ScreenContext context, SettingsS
 	render_button(renderer, settings_screen.btn_hard);
 
 	SDL_QueryTexture(settings_screen.first_player, NULL, NULL, &text_rect.w, &text_rect.h);
-	text_rect.x = 120;
+	text_rect.x = 270;
 	text_rect.y = 277;
 	SDL_RenderCopy(renderer, settings_screen.first_player, NULL, &text_rect);
 	render_button(renderer, settings_screen.btn_p1);
 	render_button(renderer, settings_screen.btn_p2);
 
 	SDL_QueryTexture(settings_screen.time_limit, NULL, NULL, &text_rect.w, &text_rect.h);
-	text_rect.x = 120;
+	text_rect.x = 270;
 	text_rect.y = 377;
 	SDL_RenderCopy(renderer, settings_screen.time_limit, NULL, &text_rect);
 	render_input_field(renderer, settings_screen.timelimit_field, context);
@@ -801,7 +874,7 @@ void ui_render_leaderboard(SDL_Renderer* renderer, ScreenContext context, Leader
 
 	SDL_Rect text_rect;
 	SDL_QueryTexture(lb_screen.header, NULL, NULL, &text_rect.w, &text_rect.h);
-	text_rect.x = 340;
+	text_rect.x = SCREEN_WIDTH / 2 - text_rect.w / 2;
 	text_rect.y = 20;
 	SDL_RenderCopy(renderer, lb_screen.header, NULL, &text_rect);
 
@@ -843,11 +916,64 @@ void ui_render_leaderboard(SDL_Renderer* renderer, ScreenContext context, Leader
 	SDL_RenderPresent(renderer);
 }
 
+//this function is not suitable for different field sizes, static array grid[][] should be replaced by dinamically allocated one,
+// also its need to receive field_size param
+static void render_field(SDL_Renderer* renderer, ScreenContext context, UICell grid[][FIELD_SIZE]) {
+	const int start_x = 350;
+	const int start_y = 20;
+	const int cell_size = 100;
+	for (int j = 0; j < FIELD_SIZE; j++) {
+		for (int i = 0; i < FIELD_SIZE; i++) {
+			SDL_Rect cell = (SDL_Rect){ start_x + cell_size * i, start_y + cell_size * j, cell_size, cell_size };
+			if (grid[j][i].is_selected) {
+				SDL_SetRenderDrawColor(renderer, GRAY_HOVERED);
+				SDL_RenderFillRect(renderer, &cell);
+				SDL_SetRenderDrawColor(renderer, BLACK);
+				SDL_RenderDrawRect(renderer, &cell);
+			}
+			if (grid[j][i].is_cursored) {
+				SDL_SetRenderDrawColor(renderer, YELLOW);
+				SDL_RenderDrawRect(renderer, &cell);
+				SDL_Rect border = (SDL_Rect){cell.x + 1, cell.y + 1, cell.w - 2, cell.h - 2};
+				SDL_SetRenderDrawColor(renderer, YELLOW);
+				SDL_RenderDrawRect(renderer, &border);
+			}
+			else {
+				SDL_SetRenderDrawColor(renderer, BLACK);
+				SDL_RenderDrawRect(renderer, &cell);
+			}		
+			//render texture if this cell isn`t empty
+			if (grid[j][i].texture != NULL) {
+				SDL_Rect cell_letter;
+				SDL_QueryTexture(grid[j][i].texture, NULL, NULL, &cell_letter.w, &cell_letter.h);
+				cell_letter.x = cell.x + cell_size / 2 - cell_letter.w / 2;
+				cell_letter.y = cell.y + cell_size / 2 - cell_letter.h / 2;
+				SDL_RenderCopy(renderer, grid[j][i].texture, NULL,&cell_letter);
+			}
+		}
+	}
+}
+
+static void ui_render_game(SDL_Renderer* renderer, ScreenContext context, GameScreen g_screen) {
+	SDL_SetRenderDrawColor(renderer, WHITE);
+	SDL_RenderClear(renderer);
+
+	render_button(renderer, g_screen.btn_up);
+	render_button(renderer, g_screen.btn_down);
+	render_button(renderer, g_screen.btn_left);
+	render_button(renderer, g_screen.btn_right);
+
+	render_field(renderer, context, g_screen.grid);
+	SDL_RenderPresent(renderer);
+}
+
 
 StatusCode ui_render(SDL_Renderer* renderer, ScreenContext context, 
 	MainScreen main_screen,
 	SettingsScreen settings_screen,
-	LeaderboardScreen lb_screen) {
+	LeaderboardScreen lb_screen,
+	GameScreen g_screen
+) {
 	switch (context.current_screen) {
 	case SCREEN_MAIN:
 		ui_render_main(renderer, context, main_screen);
@@ -857,6 +983,9 @@ StatusCode ui_render(SDL_Renderer* renderer, ScreenContext context,
 		break;
 	case SCREEN_LEADERBOARD:
 		ui_render_leaderboard(renderer, context, lb_screen);
+		break;
+	case SCREEN_GAME:
+		ui_render_game(renderer, context, g_screen);
 	}
 
 	return SUCCESS;

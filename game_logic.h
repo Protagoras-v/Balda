@@ -73,9 +73,11 @@ int game_get_difficulty(Game* game);
 unsigned long long game_get_time_limit(Game* game);
 int game_get_player_id(Game* game);
 
+int game_get_field_size(Game* game, int* h, int* w);
+
 GameField* game_get_field(Game* game);
 
-StatusCode game_get_cell(Game* game, int x, int y, unsigned char* res);
+StatusCode game_get_cell_letter(Game* game, int y, int x, unsigned char* res);
 
 StatusCode game_get_score(Game* game, int id, int* score);
 

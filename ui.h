@@ -75,11 +75,40 @@ typedef struct LeaderboardScreen {
 	Button btn_back;
 } LeaderboardScreen;
 
+
+typedef struct UICell {
+	SDL_Texture* texture;
+	unsigned int x:8; //field cords (not a SDL!)
+	unsigned int y:8; //field cords (not a SDL!)
+
+	unsigned int is_cursored : 1;
+	unsigned int is_selected : 1; //is it part of a new word
+} UICell;
+
+typedef struct GameScreen {
+	SDL_Texture* player; //text
+	SDL_Texture* player_score;
+	SDL_Texture* computer; //text
+	SDL_Texture* computer_score;
+
+	Button btn_up;
+	Button btn_down;
+	Button btn_left;
+	Button btn_right;
+
+	UICell grid[FIELD_SIZE][FIELD_SIZE];
+	int cursor_x;
+	int cursor_y;
+
+	//и области со словами, + нужно разобарться с алертсами
+} GameScreen;
+
 typedef struct ScreenContext {
 	TTF_Font* btn_font;
 	TTF_Font* header_font;
 	TTF_Font* input_field_font;
 	TTF_Font* text_font; 
+	TTF_Font* cell_font; 
 	Screen current_screen;
 } ScreenContext;
 
@@ -100,6 +129,9 @@ StatusCode ui_update_logic(
 	MainScreen* main_screen,
 	SettingsScreen* sett_screen,
 	LeaderboardScreen* lb_screen,
+	GameScreen* g_screen,
+	Game** game,
+	Dictionary* dict,
 	GameSettings* settings,
 	Leaderboard* lb,
 	bool* f
@@ -108,10 +140,13 @@ StatusCode ui_update_logic(
 StatusCode ui_render(SDL_Renderer* renderer, ScreenContext context,
 	MainScreen main_screen,
 	SettingsScreen settings_screen,
-	LeaderboardScreen lb_screen);
+	LeaderboardScreen lb_screen,
+	GameScreen g_screen
+);
 
 StatusCode ui_set_screen_context(SDL_Renderer* renderer, ScreenContext* context,
 	MainScreen* main_screen,
 	SettingsScreen* screen_settings,
 	LeaderboardScreen* lb_screen,
+	GameScreen* g_screen,
 	GameSettings* game_settings);

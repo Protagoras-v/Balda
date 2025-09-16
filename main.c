@@ -54,8 +54,9 @@ int main() {
 	MainScreen main_screen;
 	SettingsScreen sett_screen;
 	LeaderboardScreen lb_screen;
+	GameScreen g_screen;
 
-	if (ui_set_screen_context(renderer, &context, &main_screen, &sett_screen, &lb_screen, settings) != SUCCESS) {
+	if (ui_set_screen_context(renderer, &context, &main_screen, &sett_screen, &lb_screen,&g_screen, settings) != SUCCESS) {
 		return 1;
 	}
 
@@ -63,8 +64,8 @@ int main() {
 
 	while (f) {
 		if (ui_handle_events(renderer, context, &main_screen, &sett_screen, &lb_screen) == UI_QUIT) break;
-		ui_update_logic(renderer, &context, &main_screen, &sett_screen, &lb_screen, settings, lb, &f);
-		ui_render(renderer, context, main_screen, sett_screen, lb_screen);
+		ui_update_logic(renderer, &context, &main_screen, &sett_screen, &lb_screen, &g_screen, &game, dict, settings, lb, &f);
+		ui_render(renderer, context, main_screen, sett_screen, lb_screen, g_screen);
 	}
 
 	return 0;

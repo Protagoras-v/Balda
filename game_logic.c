@@ -860,11 +860,22 @@ StatusCode game_confirm_generated_move(Game* game) {
 //---------------------------------
 
 //В SDL CP1251 Будет преобразовываться в UTF8, можно будет написать простую функцию конвертер, даже отдельно 33 случая рассмотреть if`ами
-StatusCode game_get_cell(Game* game, int x, int y, unsigned char* res) {
+StatusCode game_get_cell_letter(Game* game, int y, int x, unsigned char* res) {
 	if (game == NULL) return ERROR_NULL_POINTER;
 	if (!is_cell_coordinates_valid(game->field, y, x)) return FIELD_INVALID_COORDINATES;
 
-	return game->field->grid[y][x].letter;
+	*res = game->field->grid[y][x].letter;
+	return SUCCESS;
+}
+
+StatusCode game_get_field_size(Game* game, int* h, int* w) {
+	if (game == NULL) {
+		fprintf(stderr, "Game = NULL!!!\n");
+		return ERROR_NULL_POINTER;
+	}
+	*h = game->field->height;
+	*w = game->field->width;
+	return SUCCESS;
 }
 
 GameField* game_get_field(Game* game) {
