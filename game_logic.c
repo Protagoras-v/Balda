@@ -933,7 +933,7 @@ StatusCode game_get_winner(Game* game, int* winner_id) {
 	return SUCCESS;
 }
 
-StatusCode game_get_leaderboard(Leaderboard* lb, char usernames[][MAX_WORD_LEN + 1], int scores[], int* size) {
+StatusCode game_get_leaderboard(Leaderboard* lb, char usernames[][LEADERBOARD_MAX_NAME_LEN], int scores[], int* size) {
 	if (lb == NULL) return ERROR_NULL_POINTER;
 	for (int i = 0; i < lb->count && i < LEADERBOARD_SIZE; i++) {
 		strcpy(usernames[i], lb->users[i].username);

@@ -64,32 +64,54 @@ typedef struct SettingsScreen {
 	InputField timelimit_field;
 } SettingsScreen;
 
+typedef struct LeaderboardScreen {
+	SDL_Texture* header;
+	SDL_Texture* users[LEADERBOARD_SIZE];
+	SDL_Texture* scores[LEADERBOARD_SIZE];
+	SDL_Texture* nums[LEADERBOARD_SIZE];
+
+	int count_of_records;
+
+	Button btn_back;
+} LeaderboardScreen;
+
 typedef struct ScreenContext {
 	TTF_Font* btn_font;
 	TTF_Font* header_font;
 	TTF_Font* input_field_font;
+	TTF_Font* text_font; 
 	Screen current_screen;
 } ScreenContext;
 
 
 StatusCode ui_init(SDL_Window** window, SDL_Renderer** renderer);
 
-StatusCode ui_handle_events(SDL_Renderer* render, ScreenContext context,
+StatusCode ui_handle_events(
+	SDL_Renderer* render,
+	ScreenContext context,
 	MainScreen* main_screen,
-	SettingsScreen* sett_screen);
+	SettingsScreen* sett_screen,
+	LeaderboardScreen* lb_screen
+);
 
-StatusCode ui_update_logic(ScreenContext* context, 
-	MainScreen* main_screen, 
-	SettingsScreen* sett_screen, 
-	//logic
+StatusCode ui_update_logic(
+	SDL_Renderer* renderer,
+	ScreenContext* context,
+	MainScreen* main_screen,
+	SettingsScreen* sett_screen,
+	LeaderboardScreen* lb_screen,
 	GameSettings* settings,
-	bool* f);
+	Leaderboard* lb,
+	bool* f
+);
 
 StatusCode ui_render(SDL_Renderer* renderer, ScreenContext context,
 	MainScreen main_screen,
-	SettingsScreen settings_screen);
+	SettingsScreen settings_screen,
+	LeaderboardScreen lb_screen);
 
 StatusCode ui_set_screen_context(SDL_Renderer* renderer, ScreenContext* context,
 	MainScreen* main_screen,
 	SettingsScreen* screen_settings,
+	LeaderboardScreen* lb_screen,
 	GameSettings* game_settings);

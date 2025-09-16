@@ -13,7 +13,8 @@
 
 #define MAX_WORD_LEN 26
 #define FIELD_SIZE 5
-#define LEADERBOARD_SIZE 50
+#define LEADERBOARD_SIZE 15
+#define LEADERBOARD_MAX_NAME_LEN 30
 #define MIN_WORD_LEN 3
 
 //game_logic
@@ -42,6 +43,8 @@
 #define HEADER_FONT_SIZE 34
 #define INPUT_FONT_FILENAME "fonts/seenonim.ttf"
 #define INPUT_FONT_SIZE 22
+#define TEXT_FONT_FILENAME "fonts/seenonim.ttf"
+#define TEXT_FONT_SIZE 22
 
 
 #define MIN(a, b) (((a) < (b)) ? (a) : (b))
