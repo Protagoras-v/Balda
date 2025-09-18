@@ -71,6 +71,43 @@ void WordCell_to_char(WordCell source[], char dest[], int word_len) {
 }
 
 
+int letter_utf8_to_cp1251(const unsigned char in[2], unsigned char* cp) {
+    unsigned char c0 = in[0];
+    unsigned char c1 = in[1];
+
+    // ASCII
+    if (c0 < 0x80) {
+        *cp = c0;
+        return 1;
+    }
+
+    // ®
+    if (c0 == 0xD0 && c1 == 0x81) { *cp = 0xA8; return 2; }
+    // Є
+    if (c0 == 0xD1 && c1 == 0x91) { *cp = 0xB8; return 2; }
+
+    // ј (D0 90) Ц я (D0 AF)
+    if (c0 == 0xD0 && c1 >= 0x90 && c1 <= 0xAF) {
+        *cp = 0xC0 + (c1 - 0x90);
+        return 2;
+    }
+
+    // а (D0 B0) Ц п (D0 BF)
+    if (c0 == 0xD0 && c1 >= 0xB0 && c1 <= 0xBF) {
+        *cp = 0xE0 + (c1 - 0xB0);
+        return 2;
+    }
+
+    // р (D1 80) Ц € (D1 8F)
+    if (c0 == 0xD1 && c1 >= 0x80 && c1 <= 0x8F) {
+        *cp = 0xF0 + (c1 - 0x80);
+        return 2;
+    }
+
+    fprintf(stderr, "Ќеизвестный UTF-8 символ при конвертации в cp1251\n");
+    return 0;
+}
+
 int letter_cp1251_to_utf8(unsigned char cp, unsigned char out[2]) {
     if (cp == 0) { 
         out[0] = 0x0;

@@ -63,7 +63,7 @@ int main() {
 	bool f = true;
 
 	while (f) {
-		if (ui_handle_events(renderer, context, &main_screen, &sett_screen, &lb_screen) == UI_QUIT) break;
+		if (ui_handle_events(renderer, context, &main_screen, &sett_screen, &lb_screen, &g_screen) == UI_QUIT) break;
 		ui_update_logic(renderer, &context, &main_screen, &sett_screen, &lb_screen, &g_screen, &game, dict, settings, lb, &f);
 		ui_render(renderer, context, main_screen, sett_screen, lb_screen, g_screen);
 	}

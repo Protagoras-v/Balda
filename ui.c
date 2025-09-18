@@ -14,6 +14,7 @@
 #define GRAY_HOVERED 222, 222, 222, 0
 #define YELLOW 255, 255, 0, 0
 #define PURPLE 225, 28, 255, 0
+#define GREEN 0, 255, 0, 0
 
 
 static int get_cursor_padding(TTF_Font* font, const char* text, int len) {
@@ -73,11 +74,10 @@ StatusCode ui_init(SDL_Window** window, SDL_Renderer** renderer) {
 					printf("SDL_TTF could not initialize! SDL_TTF Error: %s\n", TTF_GetError());
 					return UI_SDL_ERROR;
 				}
-			}
 
+			}
 		}
 	}
-
 	return SUCCESS;
 }
 
@@ -290,6 +290,14 @@ StatusCode ui_set_screen_context(
 	//game_screen
 	g_screen->cursor_x = 2;
 	g_screen->cursor_y = 2;
+	g_screen->is_stoped = 0;
+	g_screen->letter = '\0';
+	g_screen->text_input = 0;
+	g_screen->input_on_off = 0;
+	g_screen->is_cursor_active = 1;
+	g_screen->is_letter_placed = 0;
+	g_screen->new_letter = 0;
+
 	g_screen->computer = createTextureFromText(renderer, context->text_font, "Компьютер");
 	g_screen->player = createTextureFromText(renderer, context->text_font, "Игрок");
 
@@ -469,18 +477,18 @@ void event_settings_keydown(SDL_Event e, SettingsScreen* sett_screen) {
 	InputField* field = &sett_screen->timelimit_field;
 	switch (e.key.keysym.sym) {
 	case SDLK_BACKSPACE:
-		if (field->cursorPos > 0) {
+		if (field->cursorPos > 0 && sett_screen->timelimit_field.is_active) {
 			//memmove because its safe for crossed parts of memmory
 			memmove(&field->text[field->cursorPos - 1], &field->text[field->cursorPos], strlen(field->text) - field->cursorPos + 1);
 			field->cursorPos--;
 		}
 		break;
 	case SDLK_RIGHT:
-		if (field->cursorPos < strlen(field->text))
+		if (field->cursorPos < strlen(field->text) && sett_screen->timelimit_field.is_active)
 			field->cursorPos++;
 		break;
 	case SDLK_LEFT:
-		if (field->cursorPos > 0)
+		if (field->cursorPos > 0 && sett_screen->timelimit_field.is_active)
 			field->cursorPos--;
 		break;
 	case SDLK_RETURN:
@@ -511,10 +519,56 @@ static void event_lb_mouseclick(SDL_Event e, LeaderboardScreen* lb_screen) {
 }
 
 
+static void event_game_keydown(SDL_Event e, GameScreen* g_screen) {
+	printf("ok\n");
+	switch (e.key.keysym.sym) {
+	case SDLK_RETURN:
+		if (!g_screen->is_letter_placed) {
+			printf("ENTER PRESSED\n");
+			g_screen->input_on_off = 1;
+		}
+	}
+}
+
+static void event_game_text_input(SDL_Event e, GameScreen* g_screen) {
+	if (is_it_ru_utf8_letter(e.text.text)) {
+		unsigned char cp1251_lett = '\0';
+		letter_utf8_to_cp1251(e.text.text, &cp1251_lett);
+		g_screen->letter = cp1251_lett;
+		g_screen->new_letter = 1;
+	}
+}
+
+static void event_game_mousemotion(SDL_Event e, GameScreen* g_screen) {
+	if (g_screen->is_cursor_active) {
+		check_button_hovered(e, &g_screen->btn_up);
+		check_button_hovered(e, &g_screen->btn_down);
+		check_button_hovered(e, &g_screen->btn_left);
+		check_button_hovered(e, &g_screen->btn_right);
+	}
+}
+
+static void event_game_mouseclick(SDL_Event e, GameScreen* g_screen) {
+	if (g_screen->btn_up.is_hovered) {
+		g_screen->btn_up.is_clicked = 1;
+	}
+	else if (g_screen->btn_down.is_hovered) {
+		g_screen->btn_down.is_clicked = 1;
+	}
+	else if (g_screen->btn_left.is_hovered) {
+		g_screen->btn_left.is_clicked = 1;
+	}
+	else if (g_screen->btn_right.is_hovered) {
+		g_screen->btn_right.is_clicked = 1;
+	}
+}
+
+
 StatusCode ui_handle_events(SDL_Renderer* render, ScreenContext context, 
 	MainScreen* main_screen, 
 	SettingsScreen* sett_screen,
-	LeaderboardScreen* lb_screen) {
+	LeaderboardScreen* lb_screen,
+	GameScreen* g_screen) {
 	SDL_Event e;
 	while (SDL_PollEvent(&e)) {
 		if (e.type == SDL_QUIT) {
@@ -557,6 +611,18 @@ StatusCode ui_handle_events(SDL_Renderer* render, ScreenContext context,
 				}
 				break;
 			case SCREEN_GAME:
+				if (e.type == SDL_KEYDOWN) {
+					event_game_keydown(e, g_screen);
+				}
+				else if (e.type == SDL_MOUSEMOTION) {
+					event_game_mousemotion(e, g_screen);
+				}
+				else if (e.type == SDL_MOUSEBUTTONDOWN) {
+					event_game_mouseclick(e, g_screen);
+				}
+				else if (e.type == SDL_TEXTINPUT) {
+					event_game_text_input(e, g_screen);
+				}
 				break;
 			}
 		}
@@ -593,6 +659,7 @@ static void load_leaderboard(SDL_Renderer* renderer, ScreenContext context, Lead
 	}
 }
 
+//make a graphic representation of game (make field textures, update "cursored" and selected cells and etc.)
 static void load_game_screen(SDL_Renderer* renderer, ScreenContext context, GameScreen* g_screen, Game* game) {
 	int w, h;
 	game_get_field_size(game, &h, &w);
@@ -728,6 +795,71 @@ static void ui_update_logic_leaderboard(ScreenContext* context, LeaderboardScree
 	}
 }
 
+
+static void ui_update_logic_game(SDL_Renderer* renderer, ScreenContext* context, GameScreen* g_screen, Game** game, Dictionary* dict) {
+	//first part, before letter was placed
+	if (!g_screen->is_letter_placed) {
+		if (g_screen->input_on_off) {
+			if (!g_screen->text_input) {
+				if (is_cell_empty(game_get_field(*game), g_screen->cursor_y, g_screen->cursor_x)) {
+					printf("start input\n");
+					g_screen->is_cursor_active = 0;
+					g_screen->text_input = 1;
+					SDL_StartTextInput();
+				}
+				else {
+					printf("клетка занята!\n");
+				}
+			}
+			else {
+				if (g_screen->letter == '\0') {
+					printf("end input\n");
+					g_screen->text_input = 0;
+					g_screen->is_cursor_active = 1;
+					SDL_StopTextInput();
+				}
+				else {
+					//call game_try_place_letter() and so on
+				}
+				//check is there letter, if it exists, start word selection
+			}
+			g_screen->input_on_off = 0;
+		}
+		//update letter
+		if (g_screen->new_letter) {
+			//add it only into UI grid
+			g_screen->grid[g_screen->cursor_y][g_screen->cursor_x].texture = createTextureFromText(renderer, context->cell_font, g_screen->letter);
+			g_screen->new_letter = 0;
+		}
+
+		//cursor
+		else if (g_screen->btn_up.is_clicked && g_screen->cursor_y > 0) {
+			g_screen->btn_up.is_clicked = 0;
+			g_screen->grid[g_screen->cursor_y][g_screen->cursor_x].is_cursored = 0;
+			g_screen->cursor_y--;
+			g_screen->grid[g_screen->cursor_y][g_screen->cursor_x].is_cursored = 1;
+		}
+		else if (g_screen->btn_down.is_clicked && g_screen->cursor_y < FIELD_SIZE - 1) {
+			g_screen->btn_down.is_clicked = 0;
+			g_screen->grid[g_screen->cursor_y][g_screen->cursor_x].is_cursored = 0;
+			g_screen->cursor_y++;
+			g_screen->grid[g_screen->cursor_y][g_screen->cursor_x].is_cursored = 1;
+		}
+		else if (g_screen->btn_left.is_clicked && g_screen->cursor_x > 0) {
+			g_screen->btn_left.is_clicked = 0;
+			g_screen->grid[g_screen->cursor_y][g_screen->cursor_x].is_cursored = 0;
+			g_screen->cursor_x--;
+			g_screen->grid[g_screen->cursor_y][g_screen->cursor_x].is_cursored = 1;
+		}
+		else if (g_screen->btn_right.is_clicked && g_screen->cursor_x < FIELD_SIZE - 1) {
+			g_screen->btn_right.is_clicked = 0;
+			g_screen->grid[g_screen->cursor_y][g_screen->cursor_x].is_cursored = 0;
+			g_screen->cursor_x++;
+			g_screen->grid[g_screen->cursor_y][g_screen->cursor_x].is_cursored = 1;
+		}
+	}
+}
+
 StatusCode ui_update_logic(
 	SDL_Renderer* renderer,
 	ScreenContext* context, 
@@ -750,6 +882,9 @@ StatusCode ui_update_logic(
 		break;
 	case SCREEN_LEADERBOARD:
 		ui_update_logic_leaderboard(context, lb_screen);
+		break;
+	case SCREEN_GAME:
+		ui_update_logic_game(renderer, context, g_screen, game, dict);
 		break;
 	}
 }

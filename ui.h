@@ -97,8 +97,19 @@ typedef struct GameScreen {
 	Button btn_right;
 
 	UICell grid[FIELD_SIZE][FIELD_SIZE];
-	int cursor_x;
-	int cursor_y;
+	unsigned int cursor_x : 8;
+	unsigned int cursor_y : 8;
+
+	unsigned int is_stoped : 1;
+	unsigned int is_cursor_active : 1;
+	
+	char letter;
+	unsigned int is_letter_placed : 1;
+	unsigned int text_input : 1; //when user press RETURN and must select a letter
+
+	//like a virtual keys
+	unsigned int input_on_off : 1;
+	unsigned int new_letter : 1;
 
 	//и области со словами, + нужно разобарться с алертсами
 } GameScreen;
@@ -120,7 +131,8 @@ StatusCode ui_handle_events(
 	ScreenContext context,
 	MainScreen* main_screen,
 	SettingsScreen* sett_screen,
-	LeaderboardScreen* lb_screen
+	LeaderboardScreen* lb_screen,
+	GameScreen* g_screen
 );
 
 StatusCode ui_update_logic(

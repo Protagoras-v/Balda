@@ -72,3 +72,5 @@ void reverse_word(char* word);
 void WordCell_to_char(WordCell source[], char dest[], int word_len);
 
 void string_cp1251_to_utf8(unsigned char cp1251[], size_t cp_len, unsigned char utf8[], size_t utf8_len);
+
+int letter_utf8_to_cp1251(const unsigned char in[2], unsigned char* cp);
