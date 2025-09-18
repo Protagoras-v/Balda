@@ -78,8 +78,7 @@ typedef struct LeaderboardScreen {
 
 typedef struct UICell {
 	SDL_Texture* texture;
-	unsigned int x:8; //field cords (not a SDL!)
-	unsigned int y:8; //field cords (not a SDL!)
+	SDL_Rect rect;
 
 	unsigned int is_cursored : 1;
 	unsigned int is_selected : 1; //is it part of a new word
@@ -106,10 +105,17 @@ typedef struct GameScreen {
 	char letter;
 	unsigned int is_letter_placed : 1;
 	unsigned int text_input : 1; //when user press RETURN and must select a letter
+	unsigned int is_space_pressed : 1;
 
 	//like a virtual keys
-	unsigned int input_on_off : 1;
+	unsigned int starting_selection : 1;
+	unsigned int confirm_selection : 1;
+	unsigned int input_switch : 1;
 	unsigned int new_letter : 1;
+	unsigned int delete_letter : 1; //and delete all selected cells too, i.e., return to "select a letter" step
+
+	int new_selected_cell_y : 6;
+	int new_selected_cell_x : 6;
 
 	//и области со словами, + нужно разобарться с алертсами
 } GameScreen;

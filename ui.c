@@ -293,10 +293,19 @@ StatusCode ui_set_screen_context(
 	g_screen->is_stoped = 0;
 	g_screen->letter = '\0';
 	g_screen->text_input = 0;
-	g_screen->input_on_off = 0;
+	g_screen->input_switch = 0;
 	g_screen->is_cursor_active = 1;
 	g_screen->is_letter_placed = 0;
 	g_screen->new_letter = 0;
+
+	g_screen->is_space_pressed = 0;
+	g_screen->starting_selection = 0;
+	g_screen->confirm_selection = 0;
+	g_screen->input_switch = 0;
+	g_screen->delete_letter = 0;
+
+	g_screen->new_selected_cell_y = -1;
+	g_screen->new_selected_cell_x = -1;
 
 	g_screen->computer = createTextureFromText(renderer, context->text_font, "Компьютер");
 	g_screen->player = createTextureFromText(renderer, context->text_font, "Игрок");
@@ -345,6 +354,16 @@ StatusCode ui_set_screen_context(
 	g_screen->btn_right.is_clicked = 0; //добавить выбор в зависимости от настроек
 	g_screen->btn_right.texture = NULL;
 
+	//set field
+	const int start_x = 350;
+	const int start_y = 20;
+	const int cell_size = 100;
+	for (int j = 0; j < FIELD_SIZE; j++) {
+		for (int i = 0; i < FIELD_SIZE; i++) {
+			g_screen->grid[j][i].rect = (SDL_Rect){start_x + cell_size * i, start_y + cell_size * j, cell_size, cell_size};
+		}
+	}
+
 	return SUCCESS;
 }
 
@@ -371,6 +390,16 @@ void check_field_hovered(SDL_Event e, InputField* field) {
 	else {
 		field->is_hovered = 0;
 	}
+}
+
+bool check_cell_selected(SDL_Event e, UICell* cell) {
+	if ((e.motion.x >= cell->rect.x && e.motion.x <= cell->rect.x + cell->rect.w)
+		&& (e.motion.y >= cell->rect.y && e.motion.y <= cell->rect.y + cell->rect.h)
+		&& cell->texture != NULL) {
+		cell->is_selected = 1;
+		return true;
+	}
+	return false;
 }
 
 void event_mainmenu_mousemotion(SDL_Event e, MainScreen* main_screen) {
@@ -518,20 +547,49 @@ static void event_lb_mouseclick(SDL_Event e, LeaderboardScreen* lb_screen) {
 	}
 }
 
-
+//
+//all logic links with the differentiation of parts of turn (letter placing, selection and confirmation) are managed in event part. For example, the event "space is pressed" will be registered only if is_letter_place == 1
+//
 static void event_game_keydown(SDL_Event e, GameScreen* g_screen) {
-	printf("ok\n");
 	switch (e.key.keysym.sym) {
 	case SDLK_RETURN:
 		if (!g_screen->is_letter_placed) {
 			printf("ENTER PRESSED\n");
-			g_screen->input_on_off = 1;
+			g_screen->input_switch = 1;
+		}
+		else {
+			g_screen->confirm_selection = 1;
+		}
+		break;
+	case SDLK_SPACE:
+		if (g_screen->is_letter_placed && g_screen->is_space_pressed == 0) {
+			g_screen->is_space_pressed = 1;
+			g_screen->starting_selection = 1;
+		}
+		break;
+	case SDLK_ESCAPE:
+		if (g_screen->is_letter_placed) {
+			g_screen->delete_letter = 1;
+		}
+		else if (g_screen->text_input) {
+			g_screen->letter = '\0';
+			g_screen->input_switch = 1;
+		}
+		//and also there should be end game (do you want to end game? do you want to save it?)
+		break;
+	}
+}
+
+static void event_game_keydup(SDL_Event e, GameScreen* g_screen) {
+	if (e.key.keysym.sym == SDLK_SPACE) {
+		if (g_screen->is_letter_placed) {
+			g_screen->is_space_pressed = 0;
 		}
 	}
 }
 
 static void event_game_text_input(SDL_Event e, GameScreen* g_screen) {
-	if (is_it_ru_utf8_letter(e.text.text)) {
+	if (is_it_ru_utf8_letter(e.text.text) && g_screen->text_input) {
 		unsigned char cp1251_lett = '\0';
 		letter_utf8_to_cp1251(e.text.text, &cp1251_lett);
 		g_screen->letter = cp1251_lett;
@@ -545,6 +603,18 @@ static void event_game_mousemotion(SDL_Event e, GameScreen* g_screen) {
 		check_button_hovered(e, &g_screen->btn_down);
 		check_button_hovered(e, &g_screen->btn_left);
 		check_button_hovered(e, &g_screen->btn_right);
+	}
+	//it can be 1 only if g_screen->is_letter_placed == 1
+	if (g_screen->is_space_pressed) {
+		for (int y = 0; y < FIELD_SIZE; y++) {
+			for (int x = 0; x < FIELD_SIZE; x++) {
+				if (check_cell_selected(e, &g_screen->grid[y][x])) {
+					g_screen->new_selected_cell_x = x;
+					g_screen->new_selected_cell_y = y;
+					return;
+				}
+			}
+		}
 	}
 }
 
@@ -613,6 +683,9 @@ StatusCode ui_handle_events(SDL_Renderer* render, ScreenContext context,
 			case SCREEN_GAME:
 				if (e.type == SDL_KEYDOWN) {
 					event_game_keydown(e, g_screen);
+				}
+				else if (e.type == SDL_KEYUP) {
+					event_game_keydup(e, g_screen);
 				}
 				else if (e.type == SDL_MOUSEMOTION) {
 					event_game_mousemotion(e, g_screen);
@@ -797,66 +870,159 @@ static void ui_update_logic_leaderboard(ScreenContext* context, LeaderboardScree
 
 
 static void ui_update_logic_game(SDL_Renderer* renderer, ScreenContext* context, GameScreen* g_screen, Game** game, Dictionary* dict) {
-	//first part, before letter was placed
-	if (!g_screen->is_letter_placed) {
-		if (g_screen->input_on_off) {
-			if (!g_screen->text_input) {
-				if (is_cell_empty(game_get_field(*game), g_screen->cursor_y, g_screen->cursor_x)) {
-					printf("start input\n");
-					g_screen->is_cursor_active = 0;
-					g_screen->text_input = 1;
-					SDL_StartTextInput();
-				}
-				else {
-					printf("клетка занята!\n");
-				}
+	StatusCode code;
+	//enter pressed (and if letter is not already placed)
+	if (g_screen->input_switch) {
+		if (!g_screen->text_input) {
+			if (is_cell_empty(game_get_field(*game), g_screen->cursor_y, g_screen->cursor_x) && is_letter_near(game_get_field(*game), g_screen->cursor_y, g_screen->cursor_x)) {
+				printf("start input\n");
+				g_screen->is_cursor_active = 0;
+
+				g_screen->btn_up.is_hovered = 0;
+				g_screen->btn_down.is_hovered = 0;
+				g_screen->btn_left.is_hovered = 0;
+				g_screen->btn_right.is_hovered = 0;
+
+				g_screen->text_input = 1;
+				SDL_StartTextInput();
 			}
 			else {
-				if (g_screen->letter == '\0') {
-					printf("end input\n");
+				printf("сюда нельзя поставить букву!\n");
+			}
+		}
+		else {
+			if (g_screen->letter == '\0') {
+				printf("end input\n");
+				g_screen->text_input = 0;
+
+				//in case user pressed ESCAPE while selecting the letter
+				if (g_screen->grid[g_screen->cursor_y][g_screen->cursor_x].texture != NULL) {
+					SDL_DestroyTexture(g_screen->grid[g_screen->cursor_y][g_screen->cursor_x].texture);
+					g_screen->grid[g_screen->cursor_y][g_screen->cursor_x].texture = NULL;
+				}
+				g_screen->is_cursor_active = 1;
+				SDL_StopTextInput();
+			}
+			else {
+				code = game_try_place_letter(*game, g_screen->cursor_y, g_screen->cursor_x, g_screen->letter);
+				if (code == SUCCESS) {
+					g_screen->is_letter_placed = 1;
+					//hide cursor highlighting
+					g_screen->grid[g_screen->cursor_y][g_screen->cursor_x].is_cursored = 0;
+					g_screen->is_cursor_active = 0;
 					g_screen->text_input = 0;
-					g_screen->is_cursor_active = 1;
 					SDL_StopTextInput();
 				}
 				else {
-					//call game_try_place_letter() and so on
+					g_screen->letter == '\0';
+					g_screen->is_cursor_active = 1;
+					//delete letter
+					char t[2] = { g_screen->letter , '\0' };
+					SDL_DestroyTexture(g_screen->grid[g_screen->cursor_y][g_screen->cursor_x].texture);
+					g_screen->grid[g_screen->cursor_y][g_screen->cursor_x].texture = createTextureFromText(renderer, context->cell_font, t);
+
+					SDL_StopTextInput();
 				}
-				//check is there letter, if it exists, start word selection
 			}
-			g_screen->input_on_off = 0;
 		}
-		//update letter
-		if (g_screen->new_letter) {
-			//add it only into UI grid
-			g_screen->grid[g_screen->cursor_y][g_screen->cursor_x].texture = createTextureFromText(renderer, context->cell_font, g_screen->letter);
-			g_screen->new_letter = 0;
+		g_screen->input_switch = 0;
+	}
+	//update letter
+	else if (g_screen->new_letter) {
+		//add it only into UI grid
+		char t[2] = { g_screen->letter , '\0' };
+		SDL_DestroyTexture(g_screen->grid[g_screen->cursor_y][g_screen->cursor_x].texture);
+		g_screen->grid[g_screen->cursor_y][g_screen->cursor_x].texture = createTextureFromText(renderer, context->cell_font, t);
+		g_screen->new_letter = 0;
+	}
+	// delete letter + clear word selection
+	else if (g_screen->delete_letter) {
+		game_clear_move(*game);
+		for (int y = 0; y < FIELD_SIZE; y++) {
+			for (int x = 0; x < FIELD_SIZE; x++) {
+				g_screen->grid[y][x].is_selected = 0;
+			}
+		}
+		SDL_DestroyTexture(g_screen->grid[g_screen->cursor_y][g_screen->cursor_x].texture);
+		g_screen->grid[g_screen->cursor_y][g_screen->cursor_x].texture = NULL;
+		g_screen->grid[g_screen->cursor_y][g_screen->cursor_x].is_cursored = 1;
+		g_screen->is_cursor_active = 1;
+		g_screen->is_letter_placed = 0;
+
+		g_screen->delete_letter = 0;
+	}
+
+	// space was pressed, clear selection
+	else if (g_screen->starting_selection) {
+		game_cancel_word_selection(*game);
+		for (int y = 0; y < FIELD_SIZE; y++) {
+			for (int x = 0; x < FIELD_SIZE; x++) {
+				g_screen->grid[y][x].is_selected = 0;
+			}
+		}
+		g_screen->starting_selection = 0;
+	}
+	//if there is new selected cell, add it into Move 
+	else if (g_screen->new_selected_cell_x != -1) {
+  		code = game_add_cell_into_word(*game, g_screen->new_selected_cell_y, g_screen->new_selected_cell_x);
+		//if this cell isn`t connected with previous and if it`s already selected
+		if (code == FIELD_CELL_NOT_CONNECTED) {
+			g_screen->grid[g_screen->new_selected_cell_y][g_screen->new_selected_cell_x].is_selected = 0;
 		}
 
-		//cursor
-		else if (g_screen->btn_up.is_clicked && g_screen->cursor_y > 0) {
-			g_screen->btn_up.is_clicked = 0;
-			g_screen->grid[g_screen->cursor_y][g_screen->cursor_x].is_cursored = 0;
-			g_screen->cursor_y--;
-			g_screen->grid[g_screen->cursor_y][g_screen->cursor_x].is_cursored = 1;
+		g_screen->new_selected_cell_x = -1;
+		g_screen->new_selected_cell_y = -1;
+	}
+
+	//confirm
+	else if (g_screen->confirm_selection) {
+		code = game_confirm_move(*game, dict);
+		switch (code) {
+		case GAME_INVALID_WORD:
+			int q = 0;
+			//алерт о том, что такого слова нет, предлагаем алертом добавить в словарь
+			break;
+		case GAME_WORD_USED:
+			int qw = 0;
+			//алерт о том, что слово использовано
+			break;
+		case GAME_WORD_DOESNT_CONTAIN_LETTER:
+			int qe = 0;
+			//алерт о том, что нет буквы в ее составе
+			break;
+		case SUCCESS:
+			int qr = 0;
+			//отлично, запускаем ход ии, нужно добавить для этого флаг
+			break;
+		
 		}
-		else if (g_screen->btn_down.is_clicked && g_screen->cursor_y < FIELD_SIZE - 1) {
-			g_screen->btn_down.is_clicked = 0;
-			g_screen->grid[g_screen->cursor_y][g_screen->cursor_x].is_cursored = 0;
-			g_screen->cursor_y++;
-			g_screen->grid[g_screen->cursor_y][g_screen->cursor_x].is_cursored = 1;
-		}
-		else if (g_screen->btn_left.is_clicked && g_screen->cursor_x > 0) {
-			g_screen->btn_left.is_clicked = 0;
-			g_screen->grid[g_screen->cursor_y][g_screen->cursor_x].is_cursored = 0;
-			g_screen->cursor_x--;
-			g_screen->grid[g_screen->cursor_y][g_screen->cursor_x].is_cursored = 1;
-		}
-		else if (g_screen->btn_right.is_clicked && g_screen->cursor_x < FIELD_SIZE - 1) {
-			g_screen->btn_right.is_clicked = 0;
-			g_screen->grid[g_screen->cursor_y][g_screen->cursor_x].is_cursored = 0;
-			g_screen->cursor_x++;
-			g_screen->grid[g_screen->cursor_y][g_screen->cursor_x].is_cursored = 1;
-		}
+		g_screen->confirm_selection = 0;
+	}
+
+	//cursor
+	else if (g_screen->btn_up.is_clicked && g_screen->cursor_y > 0) {
+		g_screen->btn_up.is_clicked = 0;
+		g_screen->grid[g_screen->cursor_y][g_screen->cursor_x].is_cursored = 0;
+		g_screen->cursor_y--;
+		g_screen->grid[g_screen->cursor_y][g_screen->cursor_x].is_cursored = 1;
+	}
+	else if (g_screen->btn_down.is_clicked && g_screen->cursor_y < FIELD_SIZE - 1) {
+		g_screen->btn_down.is_clicked = 0;
+		g_screen->grid[g_screen->cursor_y][g_screen->cursor_x].is_cursored = 0;
+		g_screen->cursor_y++;
+		g_screen->grid[g_screen->cursor_y][g_screen->cursor_x].is_cursored = 1;
+	}
+	else if (g_screen->btn_left.is_clicked && g_screen->cursor_x > 0) {
+		g_screen->btn_left.is_clicked = 0;
+		g_screen->grid[g_screen->cursor_y][g_screen->cursor_x].is_cursored = 0;
+		g_screen->cursor_x--;
+		g_screen->grid[g_screen->cursor_y][g_screen->cursor_x].is_cursored = 1;
+	}
+	else if (g_screen->btn_right.is_clicked && g_screen->cursor_x < FIELD_SIZE - 1) {
+		g_screen->btn_right.is_clicked = 0;
+		g_screen->grid[g_screen->cursor_y][g_screen->cursor_x].is_cursored = 0;
+		g_screen->cursor_x++;
+		g_screen->grid[g_screen->cursor_y][g_screen->cursor_x].is_cursored = 1;
 	}
 }
 
@@ -1053,20 +1219,24 @@ void ui_render_leaderboard(SDL_Renderer* renderer, ScreenContext context, Leader
 
 //this function is not suitable for different field sizes, static array grid[][] should be replaced by dinamically allocated one,
 // also its need to receive field_size param
-static void render_field(SDL_Renderer* renderer, ScreenContext context, UICell grid[][FIELD_SIZE]) {
-	const int start_x = 350;
-	const int start_y = 20;
-	const int cell_size = 100;
+static void render_field(SDL_Renderer* renderer, ScreenContext context, UICell grid[][FIELD_SIZE], bool text_input_on) {
 	for (int j = 0; j < FIELD_SIZE; j++) {
 		for (int i = 0; i < FIELD_SIZE; i++) {
-			SDL_Rect cell = (SDL_Rect){ start_x + cell_size * i, start_y + cell_size * j, cell_size, cell_size };
+			SDL_Rect cell = grid[j][i].rect;
 			if (grid[j][i].is_selected) {
 				SDL_SetRenderDrawColor(renderer, GRAY_HOVERED);
 				SDL_RenderFillRect(renderer, &cell);
 				SDL_SetRenderDrawColor(renderer, BLACK);
 				SDL_RenderDrawRect(renderer, &cell);
 			}
-			if (grid[j][i].is_cursored) {
+			else if (grid[j][i].is_cursored && text_input_on) {
+				SDL_SetRenderDrawColor(renderer, GREEN);
+				SDL_RenderDrawRect(renderer, &cell);
+				SDL_Rect border = (SDL_Rect){ cell.x + 1, cell.y + 1, cell.w - 2, cell.h - 2 };
+				SDL_SetRenderDrawColor(renderer, GREEN);
+				SDL_RenderDrawRect(renderer, &border);
+			}
+			else if (grid[j][i].is_cursored) {
 				SDL_SetRenderDrawColor(renderer, YELLOW);
 				SDL_RenderDrawRect(renderer, &cell);
 				SDL_Rect border = (SDL_Rect){cell.x + 1, cell.y + 1, cell.w - 2, cell.h - 2};
@@ -1081,8 +1251,8 @@ static void render_field(SDL_Renderer* renderer, ScreenContext context, UICell g
 			if (grid[j][i].texture != NULL) {
 				SDL_Rect cell_letter;
 				SDL_QueryTexture(grid[j][i].texture, NULL, NULL, &cell_letter.w, &cell_letter.h);
-				cell_letter.x = cell.x + cell_size / 2 - cell_letter.w / 2;
-				cell_letter.y = cell.y + cell_size / 2 - cell_letter.h / 2;
+				cell_letter.x = cell.x + cell.w / 2 - cell_letter.w / 2;
+				cell_letter.y = cell.y + cell.h / 2 - cell_letter.h / 2;
 				SDL_RenderCopy(renderer, grid[j][i].texture, NULL,&cell_letter);
 			}
 		}
@@ -1098,7 +1268,7 @@ static void ui_render_game(SDL_Renderer* renderer, ScreenContext context, GameSc
 	render_button(renderer, g_screen.btn_left);
 	render_button(renderer, g_screen.btn_right);
 
-	render_field(renderer, context, g_screen.grid);
+	render_field(renderer, context, g_screen.grid, g_screen.text_input);
 	SDL_RenderPresent(renderer);
 }
 

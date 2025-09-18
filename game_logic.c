@@ -484,7 +484,11 @@ StatusCode game_add_cell_into_word(Game* game, int y, int x) {
 	else {
 		int prev_y = move->word[move->word_len - 1].y;
 		int prev_x = move->word[move->word_len - 1].x;
-		if (is_cell_next_to_previous(y, x, prev_y, prev_x) && !is_cell_in_word(move->word, move->word_len, y, x)) {
+		//!!!!!!!!!!!!!!!!вот это было изменено!!!!!!!!
+		if (is_cell_in_word(move->word, move->word_len, y, x)) {
+			return FIELD_CELL_IS_USED;
+		}
+		if (is_cell_next_to_previous(y, x, prev_y, prev_x)) {
 			move->word[move->word_len].y = y;
 			move->word[move->word_len].x = x;
 			move->word[move->word_len].letter = game->field->grid[y][x].letter;
@@ -493,13 +497,14 @@ StatusCode game_add_cell_into_word(Game* game, int y, int x) {
 			return SUCCESS;
 		}
 		else {
-			return FIELD_INVALID_CELL;
+			return FIELD_CELL_NOT_CONNECTED;
 		}
 	}
 }
 
 StatusCode game_cancel_word_selection(Game* game) {
 	if (game == NULL) return ERROR_NULL_POINTER;
+	printf("yes\n");
 	return clear_word_selection(&game->current_move);
 }
 
