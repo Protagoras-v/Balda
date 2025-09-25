@@ -70,7 +70,7 @@ StatusCode game_undo_generated_move(Game* game, Move move);
 //--------------------get--------------------
 //-------------------------------------------
 int game_get_difficulty(Game* game);
-unsigned long long game_get_time_limit(Game* game);
+unsigned int game_get_time_limit(Game* game);
 int game_get_player_id(Game* game);
 
 int game_get_field_size(Game* game, int* h, int* w);
@@ -89,7 +89,7 @@ StatusCode game_get_word(Game* game, char* word);
 
 StatusCode game_get_word_from_move(Move move, char* word);
 
-StatusCode game_get_leaderboard(Leaderboard* lb, char usernames[][MAX_WORD_LEN + 1], int scores[], int* size);
+StatusCode game_get_leaderboard(Leaderboard* lb, char usernames[][LEADERBOARD_MAX_NAME_LEN], int scores[], int* size);
 
 bool game_is_enough_score_for_lb(Game* game, Leaderboard* lb);
 

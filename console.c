@@ -496,7 +496,7 @@ int parse_command(Dictionary* dict, GameSettings* settings, Game** game, Leaderb
 }
 
 
-int main8476324873264() {
+int main4234234() {
 	SetConsoleCP(1251);
 	SetConsoleOutputCP(1251);
 	setlocale(LC_ALL, "Russian");

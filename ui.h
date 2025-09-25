@@ -4,6 +4,7 @@
 #include <SDL_ttf.h>
 #include "common.h"
 #include "game_logic.h"
+#include "ai.h"
 
 typedef enum {
 	SCREEN_MAIN,
@@ -85,10 +86,14 @@ typedef struct UICell {
 } UICell;
 
 typedef struct GameScreen {
-	SDL_Texture* player; //text
-	SDL_Texture* player_score;
-	SDL_Texture* computer; //text
-	SDL_Texture* computer_score;
+	SDL_Texture* percent_texture;
+	unsigned int percent : 7;
+
+	unsigned int current_player : 2; //0 isnt used, because 0 is an empty cell
+	SDL_Texture* player_texture; //text
+	SDL_Texture* player_score_texture;
+	SDL_Texture* computer_texture; //text
+	SDL_Texture* computer_score_texture;
 
 	Button btn_up;
 	Button btn_down;
@@ -103,7 +108,7 @@ typedef struct GameScreen {
 	unsigned int is_cursor_active : 1;
 	
 	char letter;
-	unsigned int is_letter_placed : 1;
+	unsigned int is_letter_placed : 1; // if letter is placed screen buttons have to be unresponsible, so we can check in event handlers which phase of the turn it is (letter placing or letter selection)
 	unsigned int text_input : 1; //when user press RETURN and must select a letter
 	unsigned int is_space_pressed : 1;
 
@@ -117,11 +122,33 @@ typedef struct GameScreen {
 	int new_selected_cell_y : 6;
 	int new_selected_cell_x : 6;
 
-	//и области со словами, + нужно разобарться с алертсами
+	//alerts
+	SDL_Rect rect_message;
+
+	Button btn_message_yes;
+	Button btn_message_no;
+
+	SDL_Texture* invalid_word_message_texture;
+
+	SDL_Texture* need_additional_time_texture1;
+	SDL_Texture* need_additional_time_texture2;
+
+	SDL_Texture* ask_for_username_message_texture;
+	InputField username_field;
+
+	SDL_Texture* end_game_message_texture;
+
+	unsigned int message_additional_time : 1;
+	unsigned int message_invalid_word : 1;
+	unsigned int message_ask_for_username : 1;
+	unsigned int message_end_game : 1;
+
+	//и области со словами, 
 } GameScreen;
 
 typedef struct ScreenContext {
 	TTF_Font* btn_font;
+	TTF_Font* alert_btn_font;
 	TTF_Font* header_font;
 	TTF_Font* input_field_font;
 	TTF_Font* text_font; 
@@ -151,15 +178,17 @@ StatusCode ui_update_logic(
 	Game** game,
 	Dictionary* dict,
 	GameSettings* settings,
+	AIState* state,
 	Leaderboard* lb,
 	bool* f
 );
 
-StatusCode ui_render(SDL_Renderer* renderer, ScreenContext context,
-	MainScreen main_screen,
-	SettingsScreen settings_screen,
-	LeaderboardScreen lb_screen,
-	GameScreen g_screen
+
+StatusCode ui_render(SDL_Renderer* renderer, ScreenContext* context,
+	MainScreen* main_screen,
+	SettingsScreen* settings_screen,
+	LeaderboardScreen* lb_screen,
+	GameScreen* g_screen
 );
 
 StatusCode ui_set_screen_context(SDL_Renderer* renderer, ScreenContext* context,

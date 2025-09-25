@@ -13,15 +13,15 @@
 
 struct AIState {
 	volatile Move best_move;
-	unsigned long long end_time; //ms
-	volatile unsigned char is_move_found;
+	volatile unsigned long long end_time; //ms
+	volatile char is_move_found;
 
-	volatile bool is_additional_time;
+	volatile char is_additional_time;
 	volatile unsigned int time_limit; //volatile because if user gives an additional time, this field will contain this new value
 
-	volatile bool is_computation_complete;
-	volatile bool is_started ; // has the move already started 
-	volatile bool gave_up;
+	volatile char is_computation_complete;
+	volatile char is_started ; // has the move already started 
+	volatile char gave_up;
 	volatile unsigned char percentage;
 
 	HANDLE additional_time_event;
@@ -74,11 +74,11 @@ static void save_move(Iteration iteration, Move top_moves[], int i) {
 }
 
 
-static void state_set(AIState* state, int score, unsigned long long time_limit) {
+static void state_set(AIState* state, int score, unsigned int time_limit) {
 	InterlockedExchange8(&state->is_computation_complete, 0);
 	InterlockedExchange8(&state->is_move_found, 0);
 	InterlockedExchange8(&state->percentage, 0);
-	InterlockedExchange8(&state->time_limit, 0);
+	InterlockedExchange((volatile long*) & state->time_limit, time_limit);
 	InterlockedExchange8(&state->gave_up, 0);
 	InterlockedExchange8(&state->is_additional_time, 0);
 	//InterlockedExchange8(&state->is_started, 0);
@@ -270,6 +270,8 @@ static int easy_search(AIState* state, Dictionary* dict, GameField* field, Game*
 static void ai_easy(Dictionary* dict, Game* game_copy, AIState* state) {
 	state->end_time = GetTickCount64() + state->time_limit;
 	int counter = 0;
+
+	//Sleep(1000);
 
 	GameField* field = game_get_field(game_copy);
 	if (field == NULL) {
@@ -673,8 +675,6 @@ int evaluate(Game* game_copy) {
 
 int minimax(Game* game_copy, Dictionary* dict, AIState* state, int depth, int alpha, int beta, bool max, bool* timeout, int* counter) {
 	if (depth == 0) return evaluate(game_copy);
-
-	//ÏÎÒÎÌ ÍÓÆÍÎ ÁÓÄÅÒ ÓÁÐÀÒÜ ËÈØÍÈÉ ÊÎÄ, çàìåíèâ íà best_eval è íà êîíñòðóêöèè (max ? a : b), ÍÎ ÑÍÀ×ÀËÀ ÑÄÅËÀÞ ÊÀÊ ÅÑÒÜ
 	
 	//computer 
 	if (max) {
@@ -860,6 +860,10 @@ StatusCode ai_start_turn(Game* game, AIState* state, Dictionary* dict) {
 	if (state == NULL) return ERROR_NULL_POINTER;
 	if (dict == NULL) return ERROR_NULL_POINTER;
 
+	//debug (for gave up pop-up message)
+	//state->gave_up = 1;
+	//return SUCCESS;
+
 	InterlockedExchange8(&state->is_computation_complete, 0);
 	InterlockedExchange8(&state->is_started, 1);
 
@@ -927,12 +931,12 @@ StatusCode ai_set_stop(AIState* state) {
 	return SUCCESS;
 }
 
-StatusCode ai_give_additional_time(AIState* state, bool n, int additional_time) {
+StatusCode ai_give_additional_time(AIState* state, char n, unsigned int additional_time) {
 	if (state == NULL) return ERROR_NULL_POINTER;
 	if (!n) InterlockedExchange8(&state->is_additional_time, 0);
 	else {
 		InterlockedExchange8(&state->is_additional_time, 1);
-		InterlockedExchange(&state->time_limit, additional_time);
+		InterlockedExchange((volatile long*) &state->time_limit, (long)additional_time);
 		InterlockedExchange8(&state->is_computation_complete, 0);
 	}
 	return SUCCESS;

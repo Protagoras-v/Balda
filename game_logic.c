@@ -966,8 +966,8 @@ int game_get_player_id(Game* game) {
 int game_get_difficulty(Game* game) {
 	return game->settings->difficulty;
 }
-unsigned long long game_get_time_limit(Game* game) {
-	return (unsigned long long) game->settings->time_limit;
+unsigned int game_get_time_limit(Game* game) {
+	return game->settings->time_limit;
 }
 
 //--------------------------------------

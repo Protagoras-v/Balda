@@ -1,6 +1,15 @@
 
 #include "common.h"
 
+bool is_eng_letter_or_digit(unsigned char c) {
+    if ((c >= 'A' && c <= 'Z') || (c >= 'a' && c <= 'z'))
+        return true;
+    if (c >= '0' && c <= '9')
+        return true;
+
+    return false;
+}
+
 bool is_it_ru_letter(const unsigned char c) {
 	if ((c >= 192 && c <= 223) || //À-ß
 		(c >= 224 && c <= 255) || //à-ÿ
@@ -17,7 +26,7 @@ bool is_it_ru_utf8_letter(const unsigned char* c) {
     unsigned char c2 = (unsigned char)c[1];
 
     // À-ß
-    if (c1 == 0xD0 && c2 >= 0x90 && c2 <= 0x9F) return true;
+    if (c1 == 0xD0 && c2 >= 0x90 && c2 <= 0xAF) return true;
     // à-ï
     if (c1 == 0xD0 && c2 >= 0xB0 && c2 <= 0xBF) return true;
     // ð-ÿ
