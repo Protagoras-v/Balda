@@ -13,6 +13,15 @@ typedef enum {
 	SCREEN_LEADERBOARD,
 } Screen;
 
+typedef struct {
+	SDL_Texture* texture; //one big texture
+	SDL_Rect rect;
+	//int string_height i need to make a func for height eval
+	unsigned int scroll : 6; // max scrolling value = words_count - page_limit (if this value is negative scrolling is unavailable too)
+	unsigned int words_count : 6; //for 7x7 it is 42 turns / 2 players = 21 words max
+	unsigned int is_hovered : 1;
+} WordsArea;
+
 typedef struct Button {
 	char text[MAX_UI_BUFFER_SIZE];
 	SDL_Rect rect;
@@ -143,7 +152,11 @@ typedef struct GameScreen {
 	unsigned int message_ask_for_username : 1;
 	unsigned int message_end_game : 1;
 
-	//и области со словами, 
+	//user`s and computer`s words
+	unsigned int page_limit : 6; // max number of words displayed in the words area without scrolling
+	WordsArea user_words;
+	WordsArea computer_words;
+
 } GameScreen;
 
 typedef struct ScreenContext {
@@ -154,6 +167,9 @@ typedef struct ScreenContext {
 	TTF_Font* text_font; 
 	TTF_Font* cell_font; 
 	Screen current_screen;
+
+	int text_font_height; //used for words area
+	int text_font_width; //used for words area
 } ScreenContext;
 
 

@@ -16,12 +16,14 @@
 #define LEADERBOARD_SIZE 15
 #define LEADERBOARD_MAX_NAME_LEN 30
 #define MIN_WORD_LEN 3
+#define MAX_WORDS_COUNT 42 //49 - 7 for 7x7 field (one cell - one letter)
 
 //game_logic
 #define STARTING_PLAYER_WORDS_CAPACITY 50
 #define DEFAULT_DIFFICULTY 0
 #define DEFAULT_MAX_TIME 100 //ms
 #define DEFAULT_FIRST_PLAYER 1
+
 
 //dict
 #define FILE_NAME "dictionary.txt"
@@ -55,6 +57,10 @@
 #define CELL_FONT_FILENAME "fonts/seenonim.ttf"
 #define CELL_FONT_SIZE 22
 
+#define WORDS_AREA_WIDTH 200
+#define WORDS_AREA_HEIGHT 600
+#define WORDS_AREA_PADDING 10
+#define WORDS_AREA_TEXT_INRERVAL 5
 
 #define MIN(a, b) (((a) < (b)) ? (a) : (b))
 #define MAX(a, b) (((a) > (b)) ? (a) : (b))

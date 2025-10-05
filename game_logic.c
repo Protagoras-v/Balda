@@ -895,6 +895,7 @@ StatusCode game_get_score(Game* game, int id, int* score) {
 	return SUCCESS;
 }
 
+//put pointer on current playerX_words into char*** words
 StatusCode game_get_player_words(Game* game, int player_id, char*** words, int* count) {
 	if (game == NULL) return ERROR_NULL_POINTER;
 

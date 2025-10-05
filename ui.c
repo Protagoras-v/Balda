@@ -18,6 +18,7 @@
 #define GREEN 0, 255, 0, 0
 
 
+
 static void ui_clear_word_selection(GameScreen* g_screen) {
 	for (int y = 0; y < FIELD_SIZE; y++) {
 		for (int x = 0; x < FIELD_SIZE; x++) {
@@ -26,8 +27,9 @@ static void ui_clear_word_selection(GameScreen* g_screen) {
 	}
 }
 
+//figure out text`s len in pixels before pointer
 static int get_cursor_padding(TTF_Font* font, const char* text, int len) {
-	//figure out text`s len before pointer. So we need to copy len letters into buffer
+	//we need to copy* len* letters into buffer
 	char buffer[MAX_UI_UTF8_BUFFER_SIZE] = { 0 };
 	strncpy_s(buffer, MAX_UI_UTF8_BUFFER_SIZE, text, len);
 
@@ -35,6 +37,85 @@ static int get_cursor_padding(TTF_Font* font, const char* text, int len) {
 	TTF_SizeUTF8(font, buffer, &w, NULL);
 
 	return w;
+}
+
+//if word is longer than WORDS_AREA_WIDTH it will bu cuted
+static void cut_long_words(ScreenContext* context, char** words, int words_count) {
+	int max_word_len = (WORDS_AREA_WIDTH - WORDS_AREA_PADDING * 2) / context->text_font_width;
+	int len;
+	for (int i = 0; i < words_count; i++) {
+		len = strlen(words[i]);
+		if (len > max_word_len) {
+			//replace 2 last letters by ..
+			for (int j = 1; j < 3; j++) {
+				words[i][max_word_len - j] = '.';
+			}
+		}
+	}
+}
+
+//update words areas textures if they were changed (every turn after word placement by default)
+static void update_words_areas(SDL_Renderer* renderer, Game* game, GameScreen* g_screen, ScreenContext* context) {
+	char** user_words;
+	int uw_count;
+	char** computer_words;
+	int cw_count;
+
+	StatusCode code = game_get_player_words(game, 1, &user_words, &uw_count);
+	if (code != SUCCESS) {
+		fprintf(stderr, "update_words_areas() error code - %\n", code);
+	}
+	code = game_get_player_words(game, 2, &computer_words, &cw_count);
+	if (code != SUCCESS) {
+		fprintf(stderr, "update_words_areas() error code - %\n", code);
+	}
+
+	cut_long_words(context, user_words, uw_count);
+	cut_long_words(context, computer_words, cw_count);
+	g_screen->user_words.words_count = uw_count;
+	g_screen->computer_words.words_count = cw_count;
+
+	//user`s words
+	//ÍÅÅÅÅÒ, ÒÓÒ ÄÎËÆÍÎ ÁÛÒÜ ÂÌÅÑÒÎ WORDS_AREA_HEIGHT ñäåëàòü line_height * MAX_WORDS / 2,
+	//ÒÀÊÆÅ ÍÓÆÍÎ ÄÎÁÀÂÈÒÜ ×ÒÎ-ÒÎ ÒÈÏÀ MAX_STRING_WIDTH, È ÔÓÍÊÖÈÞ, ÊÎÒÎÐÀß ÁÓÄÅÒ ÏÐÎÁÅÃÀÒÜÑß ÏÎ WORDS[] È ÇÀÌÅÍßÒÜ ÏÎÑËÅÄÍÈÅ ÁÓÊÂÛ ÍÀ ..., ÅÑËÈ ÎÍÈ ÍÅ ÏÎÌÅÙÀÞÒÑß
+
+	SDL_Surface* uw_surface = SDL_CreateRGBSurface(0,
+		WORDS_AREA_WIDTH,
+		(context->text_font_height + WORDS_AREA_TEXT_INRERVAL) * MAX_WORDS_COUNT / 2, 
+		32, 
+		0x00FF0000, 0x0000FF00, 0x000000FF, 0xFF000000);
+
+	int y_offset = 0;
+	for (int i = 0; i < uw_count; i++) {
+		SDL_Surface* text_surf = TTF_RenderUTF8_Blended(context->text_font, user_words[i], (SDL_Color) {BLACK});
+		SDL_Rect dest = { 0, y_offset, text_surf->w, text_surf->h };
+		SDL_BlitSurface(text_surf, NULL, uw_surface, &dest);
+		y_offset += text_surf->h + 5;
+		SDL_FreeSurface(text_surf);
+	}
+	if (g_screen->user_words.texture != NULL) SDL_DestroyTexture(g_screen->user_words.texture);
+	g_screen->user_words.texture = SDL_CreateTextureFromSurface(renderer, uw_surface);
+	SDL_FreeSurface(uw_surface);
+
+
+	//computer`s words
+	SDL_Surface* cw_surface = SDL_CreateRGBSurface(0, 
+		(context->text_font_height + WORDS_AREA_TEXT_INRERVAL) * MAX_WORDS_COUNT / 2,
+		32, 
+		0x00FF0000, 0x0000FF00, 0x000000FF, 0xFF000000);
+	y_offset = 0;
+
+	for (int i = 0; i < cw_count; i++) {
+		SDL_Surface* text_surf = TTF_RenderUTF8_Blended(context->text_font, computer_words[i], (SDL_Color) { BLACK });
+		SDL_Rect dest = { 0, y_offset, text_surf->w, text_surf->h };
+		SDL_BlitSurface(text_surf, NULL, cw_surface, &dest);
+		y_offset += text_surf->h + 5;
+		SDL_FreeSurface(text_surf);
+	}
+	if (g_screen->computer_words.texture != NULL) SDL_DestroyTexture(g_screen->computer_words.texture);
+	g_screen->computer_words.texture = SDL_CreateTextureFromSurface(renderer, cw_surface);
+	SDL_FreeSurface(cw_surface);
+
 }
 
 //receives cp1251 and automatically convert it to utf8
@@ -432,6 +513,18 @@ StatusCode ui_set_screen_context(
 
 	g_screen->end_game_message_texture = createTextureFromText(renderer, context->alert_btn_font, "Èãðà îêîí÷åíà! Íàæìèòå Enter, ÷òîáû âûéòè");
 
+	
+	//words
+	g_screen->user_words.rect = (SDL_Rect){ 50, 50, 250, 400 };
+	g_screen->user_words.texture = NULL;
+	g_screen->user_words.scroll = 0;	
+
+	g_screen->computer_words.rect = (SDL_Rect){SCREEN_HEIGHT - 50, 50, 250, 400 };
+	g_screen->computer_words.texture = NULL;
+	g_screen->computer_words.scroll = 0;
+
+	TTF_SizeText(context->text_font, "A", context->text_font_width, context->text_font_height);
+	g_screen->page_limit = (WORDS_AREA_HEIGHT - WORDS_AREA_PADDING / 2) / (context->text_font_height + WORDS_AREA_TEXT_INRERVAL);
 
 	return SUCCESS;
 }
@@ -441,7 +534,7 @@ StatusCode ui_set_screen_context(
 //------------------------------------------------------EVENTS--------------------------------------------------------------
 //--------------------------------------------------------------------------------------------------------------------------
 
-void check_button_hovered(SDL_Event e, Button* btn) {
+static void check_button_hovered(SDL_Event e, Button* btn) {
 	if ((e.motion.x >= btn->rect.x && e.motion.x <= btn->rect.x + btn->rect.w)
 		&& (e.motion.y >= btn->rect.y && e.motion.y <= btn->rect.y + btn->rect.h)) {
 		btn->is_hovered = 1;
@@ -451,7 +544,7 @@ void check_button_hovered(SDL_Event e, Button* btn) {
 	}
 }
 
-void check_field_hovered(SDL_Event e, InputField* field) {
+static void check_field_hovered(SDL_Event e, InputField* field) {
 	if ((e.motion.x >= field->rect.x && e.motion.x <= field->rect.x + field->rect.w)
 		&& (e.motion.y >= field->rect.y && e.motion.y <= field->rect.y + field->rect.h)) {
 		field->is_hovered = 1;
@@ -461,7 +554,7 @@ void check_field_hovered(SDL_Event e, InputField* field) {
 	}
 }
 
-bool check_cell_selected(SDL_Event e, UICell* cell) {
+static bool check_cell_selected(SDL_Event e, UICell* cell) {
 	if ((e.motion.x >= cell->rect.x && e.motion.x <= cell->rect.x + cell->rect.w)
 		&& (e.motion.y >= cell->rect.y && e.motion.y <= cell->rect.y + cell->rect.h)
 		&& cell->texture != NULL) {
@@ -471,7 +564,18 @@ bool check_cell_selected(SDL_Event e, UICell* cell) {
 	return false;
 }
 
-void event_mainmenu_mousemotion(SDL_Event e, MainScreen* main_screen) {
+static void check_word_area_hovered(SDL_Event e, WordsArea* area) {
+	if ((e.motion.x >= area->rect.x && e.motion.x <= area->rect.x + area->rect.w)
+		&& (e.motion.y >= area->rect.y && e.motion.y <= area->rect.y + area->rect.h)
+		&& area->texture != NULL) {
+		area->is_hovered = 1;
+	}
+	else {
+		area->is_hovered = 0;
+	}
+}
+
+static event_mainmenu_mousemotion(SDL_Event e, MainScreen* main_screen) {
 	check_button_hovered(e, &main_screen->btn_new_game);
 	check_button_hovered(e, &main_screen->btn_load_game);
 	check_button_hovered(e, &main_screen->btn_to_settings);
@@ -479,7 +583,7 @@ void event_mainmenu_mousemotion(SDL_Event e, MainScreen* main_screen) {
 	check_button_hovered(e, &main_screen->btn_exit);
 }
 
-void event_mainmenu_mouseclick_down(SDL_Event e, MainScreen* main_screen) {
+static void event_mainmenu_mouseclick_down(SDL_Event e, MainScreen* main_screen) {
 	if (main_screen->btn_new_game.is_hovered) {
 		main_screen->btn_new_game.is_hovered = 0;
 		main_screen->btn_new_game.is_clicked = 1;
@@ -509,7 +613,7 @@ void event_mainmenu_mouseclick_down(SDL_Event e, MainScreen* main_screen) {
 }
 
 
-void event_settings_mousemotion(SDL_Event e, SettingsScreen* sett_screen) {
+static void event_settings_mousemotion(SDL_Event e, SettingsScreen* sett_screen) {
 	if (!sett_screen->timelimit_field.is_active) {
 		check_button_hovered(e, &sett_screen->btn_to_main);
 		check_button_hovered(e, &sett_screen->btn_easy);
@@ -521,7 +625,7 @@ void event_settings_mousemotion(SDL_Event e, SettingsScreen* sett_screen) {
 	check_field_hovered(e, &sett_screen->timelimit_field);
 }
 
-void event_settings_mouseclick(SDL_Event e, SettingsScreen* sett_screen) {
+static void event_settings_mouseclick(SDL_Event e, SettingsScreen* sett_screen) {
 	if (sett_screen->btn_to_main.is_hovered) {
 		sett_screen->btn_to_main.is_clicked = 1;
 		sett_screen->btn_to_main.is_hovered = 0;
@@ -571,7 +675,7 @@ void event_settings_mouseclick(SDL_Event e, SettingsScreen* sett_screen) {
 	}
 }
 
-void event_settings_keydown(SDL_Event e, SettingsScreen* sett_screen) {
+static void event_settings_keydown(SDL_Event e, SettingsScreen* sett_screen) {
 	InputField* field = &sett_screen->timelimit_field;
 	switch (e.key.keysym.sym) {
 	case SDLK_BACKSPACE:
@@ -596,7 +700,7 @@ void event_settings_keydown(SDL_Event e, SettingsScreen* sett_screen) {
 	}
 }
 
-void event_settings_text_input(SDL_Event e, SettingsScreen* sett_screen) {
+static void event_settings_text_input(SDL_Event e, SettingsScreen* sett_screen) {
 	char* c = e.text.text;
 	if (c[0] >= '0' && c[0] <= '9' && c[1] == '\0') {
 		sett_screen->timelimit_field.new_letter = c[0];
@@ -743,6 +847,10 @@ static void event_game_text_input(SDL_Event e, GameScreen* g_screen) {
 
 
 static void event_game_mousemotion(SDL_Event e, GameScreen* g_screen) {
+	//words areas scrolling check first
+	check_word_area_hovered(e, &g_screen->user_words);
+	check_word_area_hovered(e, &g_screen->computer_words);
+
 	if (g_screen->message_ask_for_username && !g_screen->username_field.is_active) {
 		check_field_hovered(e, &g_screen->username_field);
 	}
@@ -1577,6 +1685,19 @@ static void render_field(SDL_Renderer* renderer, UICell grid[][FIELD_SIZE], bool
 	}
 }
 
+static void render_words_area(SDL_Renderer* renderer, ScreenContext* context, GameScreen* g_screen) {
+	//äîáàâèòü èíäèêàòîð ïðîêðóòêè?
+	SDL_RenderDrawRect(renderer, &g_screen->user_words.rect);
+	SDL_Rect words_rect1 = (SDL_Rect){ 20, 20, 0, 0 };
+	SDL_QueryTexture(g_screen->user_words.texture, NULL, NULL, &words_rect1.w, &words_rect1.h);
+	SDL_RenderCopy(renderer, g_screen->user_words.texture, NULL, &words_rect1);
+
+	SDL_RenderDrawRect(renderer, &g_screen->computer_words.rect);
+	SDL_Rect words_rect2 = (SDL_Rect){ SCREEN_WIDTH - 20, SCREEN_HEIGHT - 20, 0, 0 };
+	SDL_QueryTexture(g_screen->computer_words.texture, NULL, NULL, &words_rect2.w, &words_rect2.h);
+	SDL_RenderCopy(renderer, g_screen->computer_words.texture, NULL, &words_rect2);
+}
+
 static void ui_render_game(SDL_Renderer* renderer, ScreenContext* context, GameScreen* g_screen) {
 	SDL_SetRenderDrawColor(renderer, WHITE);
 	SDL_RenderClear(renderer);
@@ -1585,6 +1706,8 @@ static void ui_render_game(SDL_Renderer* renderer, ScreenContext* context, GameS
 	render_button(renderer, &g_screen->btn_down);
 	render_button(renderer, &g_screen->btn_left);
 	render_button(renderer, &g_screen->btn_right);
+
+	render_words_area(renderer, context,  g_screen);
 
 	render_field(renderer, g_screen->grid, g_screen->text_input);
 	if (g_screen->message_additional_time) {
