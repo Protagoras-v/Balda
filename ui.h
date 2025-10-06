@@ -16,7 +16,6 @@ typedef enum {
 typedef struct {
 	SDL_Texture* texture; //one big texture
 	SDL_Rect rect;
-	//int string_height i need to make a func for height eval
 	unsigned int scroll : 6; // max scrolling value = words_count - page_limit (if this value is negative scrolling is unavailable too)
 	unsigned int words_count : 6; //for 7x7 it is 42 turns / 2 players = 21 words max
 	unsigned int is_hovered : 1;
@@ -156,6 +155,8 @@ typedef struct GameScreen {
 	unsigned int page_limit : 6; // max number of words displayed in the words area without scrolling
 	WordsArea user_words;
 	WordsArea computer_words;
+	int user_scroll : 6; //if not zero - it will be handled in ui_update_logic()
+	int comp_scroll : 6; //if not zero - it will be handled in ui_update_logic()
 
 } GameScreen;
 
@@ -177,7 +178,7 @@ StatusCode ui_init(SDL_Window** window, SDL_Renderer** renderer);
 
 StatusCode ui_handle_events(
 	SDL_Renderer* render,
-	ScreenContext context,
+	ScreenContext* context,
 	MainScreen* main_screen,
 	SettingsScreen* sett_screen,
 	LeaderboardScreen* lb_screen,

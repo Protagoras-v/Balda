@@ -75,22 +75,20 @@ static void update_words_areas(SDL_Renderer* renderer, Game* game, GameScreen* g
 	g_screen->user_words.words_count = uw_count;
 	g_screen->computer_words.words_count = cw_count;
 
-	//user`s words
-	//ÍÅÅÅÅÒ, ÒÓÒ ÄÎËÆÍÎ ÁÛÒÜ ÂÌÅÑÒÎ WORDS_AREA_HEIGHT ñäåëàòü line_height * MAX_WORDS / 2,
-	//ÒÀÊÆÅ ÍÓÆÍÎ ÄÎÁÀÂÈÒÜ ×ÒÎ-ÒÎ ÒÈÏÀ MAX_STRING_WIDTH, È ÔÓÍÊÖÈÞ, ÊÎÒÎÐÀß ÁÓÄÅÒ ÏÐÎÁÅÃÀÒÜÑß ÏÎ WORDS[] È ÇÀÌÅÍßÒÜ ÏÎÑËÅÄÍÈÅ ÁÓÊÂÛ ÍÀ ..., ÅÑËÈ ÎÍÈ ÍÅ ÏÎÌÅÙÀÞÒÑß
-
 	SDL_Surface* uw_surface = SDL_CreateRGBSurface(0,
 		WORDS_AREA_WIDTH,
 		(context->text_font_height + WORDS_AREA_TEXT_INRERVAL) * MAX_WORDS_COUNT / 2, 
 		32, 
 		0x00FF0000, 0x0000FF00, 0x000000FF, 0xFF000000);
-
+	//copy string by string to main surface
 	int y_offset = 0;
 	for (int i = 0; i < uw_count; i++) {
-		SDL_Surface* text_surf = TTF_RenderUTF8_Blended(context->text_font, user_words[i], (SDL_Color) {BLACK});
+		char utf8_s[MAX_UI_UTF8_BUFFER_SIZE] = { 0 };
+		string_cp1251_to_utf8(user_words[i], strlen(user_words[i]), utf8_s, MAX_UI_UTF8_BUFFER_SIZE);
+		SDL_Surface* text_surf = TTF_RenderUTF8_Blended(context->text_font, utf8_s, (SDL_Color) {BLACK});
 		SDL_Rect dest = { 0, y_offset, text_surf->w, text_surf->h };
 		SDL_BlitSurface(text_surf, NULL, uw_surface, &dest);
-		y_offset += text_surf->h + 5;
+		y_offset += context->text_font_height + WORDS_AREA_TEXT_INRERVAL;
 		SDL_FreeSurface(text_surf);
 	}
 	if (g_screen->user_words.texture != NULL) SDL_DestroyTexture(g_screen->user_words.texture);
@@ -99,17 +97,20 @@ static void update_words_areas(SDL_Renderer* renderer, Game* game, GameScreen* g
 
 
 	//computer`s words
-	SDL_Surface* cw_surface = SDL_CreateRGBSurface(0, 
+	SDL_Surface* cw_surface = SDL_CreateRGBSurface(0,
+		WORDS_AREA_WIDTH,
 		(context->text_font_height + WORDS_AREA_TEXT_INRERVAL) * MAX_WORDS_COUNT / 2,
 		32, 
 		0x00FF0000, 0x0000FF00, 0x000000FF, 0xFF000000);
+	//copy string by string to main surface
 	y_offset = 0;
-
 	for (int i = 0; i < cw_count; i++) {
-		SDL_Surface* text_surf = TTF_RenderUTF8_Blended(context->text_font, computer_words[i], (SDL_Color) { BLACK });
+		char utf8_s[MAX_UI_UTF8_BUFFER_SIZE] = { 0 };
+		string_cp1251_to_utf8(computer_words[i], strlen(computer_words[i]), utf8_s, MAX_UI_UTF8_BUFFER_SIZE);
+		SDL_Surface* text_surf = TTF_RenderUTF8_Blended(context->text_font, utf8_s, (SDL_Color) { BLACK });
 		SDL_Rect dest = { 0, y_offset, text_surf->w, text_surf->h };
 		SDL_BlitSurface(text_surf, NULL, cw_surface, &dest);
-		y_offset += text_surf->h + 5;
+		y_offset += text_surf->h + WORDS_AREA_TEXT_INRERVAL;
 		SDL_FreeSurface(text_surf);
 	}
 	if (g_screen->computer_words.texture != NULL) SDL_DestroyTexture(g_screen->computer_words.texture);
@@ -417,7 +418,7 @@ StatusCode ui_set_screen_context(
 
 	strncpy_s(g_screen->btn_up.text, MAX_UI_BUFFER_SIZE, "Ââåðõ", MAX_UI_BUFFER_SIZE);
 	g_screen->btn_up.rect.x = SCREEN_WIDTH/2 - 25;
-	g_screen->btn_up.rect.y = 560;
+	g_screen->btn_up.rect.y = 660;
 	g_screen->btn_up.rect.w = 50;
 	g_screen->btn_up.rect.h = 50;
 	g_screen->btn_up.is_active = 0;
@@ -428,7 +429,7 @@ StatusCode ui_set_screen_context(
 
 	strncpy_s(g_screen->btn_down.text, MAX_UI_BUFFER_SIZE, "Âíèç", MAX_UI_BUFFER_SIZE);
 	g_screen->btn_down.rect.x = SCREEN_WIDTH / 2 - 25;
-	g_screen->btn_down.rect.y = 680;
+	g_screen->btn_down.rect.y = 780;
 	g_screen->btn_down.rect.w = 50;
 	g_screen->btn_down.rect.h = 50;
 	g_screen->btn_down.is_active = 0;
@@ -439,7 +440,7 @@ StatusCode ui_set_screen_context(
 
 	strncpy_s(g_screen->btn_left.text, MAX_UI_BUFFER_SIZE, "Âëåâî", MAX_UI_BUFFER_SIZE);
 	g_screen->btn_left.rect.x = SCREEN_WIDTH / 2 - 60 - 25;
-	g_screen->btn_left.rect.y = 620;
+	g_screen->btn_left.rect.y = 720;
 	g_screen->btn_left.rect.w = 50;
 	g_screen->btn_left.rect.h = 50;
 	g_screen->btn_left.is_active = 0;
@@ -450,7 +451,7 @@ StatusCode ui_set_screen_context(
 
 	strncpy_s(g_screen->btn_right.text, MAX_UI_BUFFER_SIZE, "Âïðàâî", MAX_UI_BUFFER_SIZE);
 	g_screen->btn_right.rect.x = SCREEN_WIDTH / 2 + 60 - 25;
-	g_screen->btn_right.rect.y = 620;
+	g_screen->btn_right.rect.y = 720;
 	g_screen->btn_right.rect.w = 50;
 	g_screen->btn_right.rect.h = 50;
 	g_screen->btn_right.is_active = 0;
@@ -461,7 +462,7 @@ StatusCode ui_set_screen_context(
 
 	//set field
 	const int start_x = 350;
-	const int start_y = 20;
+	const int start_y = 50;
 	const int cell_size = 100;
 	for (int j = 0; j < FIELD_SIZE; j++) {
 		for (int i = 0; i < FIELD_SIZE; i++) {
@@ -515,16 +516,24 @@ StatusCode ui_set_screen_context(
 
 	
 	//words
-	g_screen->user_words.rect = (SDL_Rect){ 50, 50, 250, 400 };
+	g_screen->user_words.rect = (SDL_Rect){ 50, 50, WORDS_AREA_WIDTH, WORDS_AREA_HEIGHT };
 	g_screen->user_words.texture = NULL;
 	g_screen->user_words.scroll = 0;	
+	g_screen->user_words.words_count = 0;	
+	g_screen->user_words.is_hovered = 0;	
 
-	g_screen->computer_words.rect = (SDL_Rect){SCREEN_HEIGHT - 50, 50, 250, 400 };
+	g_screen->computer_words.rect = (SDL_Rect){SCREEN_WIDTH - WORDS_AREA_WIDTH - 50, 50, WORDS_AREA_WIDTH, WORDS_AREA_HEIGHT };
 	g_screen->computer_words.texture = NULL;
 	g_screen->computer_words.scroll = 0;
+	g_screen->computer_words.words_count = 0;
+	g_screen->computer_words.is_hovered = 0;
 
-	TTF_SizeText(context->text_font, "A", context->text_font_width, context->text_font_height);
-	g_screen->page_limit = (WORDS_AREA_HEIGHT - WORDS_AREA_PADDING / 2) / (context->text_font_height + WORDS_AREA_TEXT_INRERVAL);
+	g_screen->comp_scroll = 0;
+	g_screen->user_scroll = 0;
+
+	TTF_SizeText(context->text_font, "ðóì", NULL, &context->text_font_height); //for the correct value there should be both upper case and letter with a squiggle at the bottom (p, q, A, J...)
+	TTF_SizeText(context->text_font, "à", &context->text_font_width, NULL); //for the correct value there should be both upper case and letter with a squiggle at the bottom (p, q, A, J...)
+	g_screen->page_limit = (WORDS_AREA_HEIGHT - WORDS_AREA_PADDING * 2 + WORDS_AREA_TEXT_INRERVAL) / (context->text_font_height + WORDS_AREA_TEXT_INRERVAL) + 1;
 
 	return SUCCESS;
 }
@@ -918,8 +927,20 @@ static void event_game_mouseclick(SDL_Event e, GameScreen* g_screen) {
 	}
 }
 
+static void event_game_mousewheel(SDL_Event e, GameScreen* g_screen) {
+	//In SDL y = 0 is a top of the page, so you'd expec tha scrolling wheel handling events to be the same... No, actually WHEEL UP - add_scroll = +1, DOWN - -1, i think that's illogical, so I decide to invert it
+	if (g_screen->user_words.is_hovered) {
+		g_screen->user_scroll = -e.wheel.y;
+		printf("%d", -e.wheel.y);
+	}
+	else if (g_screen->computer_words.is_hovered) {
+		g_screen->comp_scroll = -e.wheel.y;
+		printf("%d", -e.wheel.y);
+	}
+}
 
-StatusCode ui_handle_events(SDL_Renderer* render, ScreenContext context, 
+
+StatusCode ui_handle_events(SDL_Renderer* render, ScreenContext* context, 
 	MainScreen* main_screen, 
 	SettingsScreen* sett_screen,
 	LeaderboardScreen* lb_screen,
@@ -930,7 +951,7 @@ StatusCode ui_handle_events(SDL_Renderer* render, ScreenContext context,
 			return UI_QUIT;
 		}
 		else {
-			switch (context.current_screen) {
+			switch (context->current_screen) {
 			case SCREEN_MAIN:
 				if (e.type == SDL_MOUSEMOTION) {
 					event_mainmenu_mousemotion(e, main_screen);
@@ -978,6 +999,9 @@ StatusCode ui_handle_events(SDL_Renderer* render, ScreenContext context,
 				else if (e.type == SDL_MOUSEBUTTONDOWN) {
 					event_game_mouseclick(e, g_screen);
 				}
+				else if (e.type == SDL_MOUSEWHEEL) {
+					event_game_mousewheel(e, g_screen);
+				}
 				else if (e.type == SDL_TEXTINPUT) {
 					event_game_text_input(e, g_screen);
 				}
@@ -1024,6 +1048,8 @@ static void load_game_screen(SDL_Renderer* renderer, ScreenContext* context, Gam
 
 	g_screen->computer_score_texture = createTextureFromText(renderer, context->text_font, p2_score);
 	g_screen->player_score_texture = createTextureFromText(renderer, context->text_font, p1_score);
+
+	update_words_areas(renderer, game, g_screen, context);
 }
 
 
@@ -1051,6 +1077,7 @@ static void check_ai_state_updates(SDL_Renderer* renderer, ScreenContext* contex
 		if (code == SUCCESS) {
 			ai_set_stop(state);
 			load_game_screen(renderer, context, g_screen, game);
+			update_words_areas(renderer, game, g_screen, context);
 			g_screen->current_player = 1;
 			ui_clear_word_selection(g_screen);
 			g_screen->letter = '\0';
@@ -1192,9 +1219,88 @@ static void ui_update_logic_leaderboard(ScreenContext* context, LeaderboardScree
 	}
 }
 
+//if it`s compute`s turn, update percentage and check do it complete computations
+static void update_computer_turn(SDL_Renderer* renderer, 
+	Game* game, 
+	AIState* state, 
+	Leaderboard* lb, 
+	ScreenContext* context, 
+	GameScreen* g_screen) 
+{
+	check_ai_state_updates(renderer, context, game, lb, state, g_screen);
+	if (g_screen->message_ask_for_username) {
+		//username window
+		if (g_screen->username_field.is_clicked) {
+			if (!g_screen->username_field.is_active) {
+				g_screen->username_field.is_active = 1;
+				SDL_StartTextInput();
+				g_screen->username_field.is_clicked = 0;
+			}
+			else {
+				//add user into leaderboard
+				if (g_screen->username_field.text[0] != '\0') {
+					game_add_into_leaderboard(lb, game, g_screen->username_field.text);
+				}
+				g_screen->message_ask_for_username = 0;
+				g_screen->message_end_game = 1;
+				SDL_StopTextInput();
+			}
+		}
+		else if (g_screen->username_field.is_there_new_letter) {
+			InputField* field = &g_screen->username_field;
+			if (strlen(g_screen->username_field.text) < MAX_WORD_LEN - 1) {
+				char buffer[MAX_UI_BUFFER_SIZE] = { 0 };
+				memcpy(buffer, field->text, field->cursorPos);
+				memcpy(buffer + field->cursorPos, &field->new_letter, 1);
+				memcpy(buffer + field->cursorPos + 1, field->text + field->cursorPos, strlen(field->text + field->cursorPos) + 1);
 
-static void ui_update_logic_game(SDL_Renderer* renderer, ScreenContext* context, GameScreen* g_screen, Game** game, Dictionary* dict, Leaderboard* lb, AIState* state) {
+				memcpy(field->text, buffer, MAX_UI_BUFFER_SIZE);
+				field->cursorPos++;
+			}
+			g_screen->username_field.is_there_new_letter = 0;
+		}
+	}
+	else if (g_screen->message_additional_time) {
+		if (g_screen->btn_message_yes.is_clicked) {
+			//give it a very big amount of time
+			ai_give_additional_time(state, true, 100000); //ms
+			SetEvent(ai_get_handle(state));
+
+			g_screen->message_additional_time = 0;
+		}
+		else if (g_screen->btn_message_no.is_clicked) {
+			ai_give_additional_time(state, false, 0);
+			ai_set_stop(state);
+			SetEvent(ai_get_handle(state));
+
+			g_screen->message_ask_for_username = 1;
+
+			g_screen->message_additional_time = 0;
+		}
+	}
+	//update percent
+	unsigned int new_percent = (unsigned int)ai_get_percentage(state);
+	if (new_percent != g_screen->percent) {
+		g_screen->percent = new_percent;
+		char percent_s[10] = { 0 };
+		_itoa(new_percent, percent_s, 10);
+		if (g_screen->percent_texture != NULL) SDL_DestroyTexture(g_screen->percent_texture);
+		g_screen->percent_texture = createTextureFromText(renderer, context->text_font, percent_s);
+		fprintf(stderr, "etxtreuwioruwe\n");
+	}
+}
+
+
+static void ui_update_logic_game(SDL_Renderer* renderer, 
+	ScreenContext* context, 
+	GameScreen* g_screen, 
+	Game** game, 
+	Dictionary* dict, 
+	Leaderboard* lb, 
+	AIState* state) 
+{
 	StatusCode code;
+	//printf("%d\n", g_screen->page_limit);
 	//end game
 	if (g_screen->message_end_game && g_screen->is_stoped) {
 		g_screen->message_end_game = 0;
@@ -1202,71 +1308,45 @@ static void ui_update_logic_game(SDL_Renderer* renderer, ScreenContext* context,
 		game_destroy(game);
 		context->current_screen = SCREEN_MAIN;
 	}
-	//if it`s compute`s turn, update percentage and check do it complete computations
+	//scrolling in word areas
+	//user
+	else if (g_screen->user_scroll != 0 && g_screen->user_words.words_count > g_screen->page_limit) {
+		int add_scroll = g_screen->user_scroll;
+		//down
+		if (g_screen->user_words.scroll + g_screen->page_limit < g_screen->user_words.words_count && add_scroll > 0) {
+			g_screen->user_words.scroll += add_scroll;
+			//scroll value can be more than 1 (when user scrolls very quickly) and if new scroll value + page_limit (number of last word on page) bigger than words_count, we just set max possible value 
+			if (g_screen->user_words.scroll + g_screen->page_limit > g_screen->user_words.words_count) {
+				g_screen->user_words.scroll = g_screen->user_words.words_count - g_screen->page_limit;
+			}
+		}
+		//up
+		if (g_screen->user_words.scroll > 0  && add_scroll < 0) {
+			g_screen->user_words.scroll += add_scroll;
+			if (g_screen->user_words.scroll < 0) g_screen->user_words.scroll = 0;
+		}
+		g_screen->user_scroll = 0;
+	}
+	//comp
+	else if (g_screen->comp_scroll != 0 && g_screen->computer_words.words_count > g_screen->page_limit) {
+		int add_scroll = g_screen->comp_scroll;
+		//down
+		if (g_screen->computer_words.scroll + g_screen->page_limit < g_screen->computer_words.words_count && add_scroll > 0) {
+			g_screen->computer_words.scroll += add_scroll;
+			//scroll value can be more than 1 (when user scrolls very quickly) and if new scroll value + page_limit (number of last word on page) bigger than words_count, we just set max possible value 
+			if (g_screen->computer_words.scroll + g_screen->page_limit > g_screen->computer_words.words_count) {
+				g_screen->computer_words.scroll = g_screen->computer_words.words_count - g_screen->page_limit;
+			}
+		}
+		//up
+		if (g_screen->computer_words.scroll > 0 && add_scroll < 0) {
+			g_screen->computer_words.scroll += add_scroll;
+			if (g_screen->computer_words.scroll < 0) g_screen->computer_words.scroll = 0;
+		}
+		g_screen->comp_scroll = 0;
+	}
 	else if (g_screen->current_player == 2) {
-		check_ai_state_updates(renderer, context, *game, lb, state, g_screen);
-		if (g_screen->message_ask_for_username) {
-			//username window
-			if (g_screen->username_field.is_clicked) {
-				if (!g_screen->username_field.is_active) {
-					g_screen->username_field.is_active = 1;
-					SDL_StartTextInput();
-					g_screen->username_field.is_clicked = 0;
-				}
-				else {
-					//add user into leaderboard
-					if (g_screen->username_field.text[0] != '\0') {
-						game_add_into_leaderboard(lb, *game, g_screen->username_field.text);
-					}
-					g_screen->message_ask_for_username = 0;
-					g_screen->message_end_game = 1;
-					SDL_StopTextInput();
-				}
-			}
-			else if (g_screen->username_field.is_there_new_letter) {
-				InputField* field = &g_screen->username_field;
-				if (strlen(g_screen->username_field.text) < MAX_WORD_LEN - 1) {
-					char buffer[MAX_UI_BUFFER_SIZE] = { 0 };
-					memcpy(buffer, field->text, field->cursorPos);
-					memcpy(buffer + field->cursorPos, &field->new_letter, 1);
-					memcpy(buffer + field->cursorPos + 1, field->text + field->cursorPos, strlen(field->text + field->cursorPos) + 1);
-
-					memcpy(field->text, buffer, MAX_UI_BUFFER_SIZE);
-					field->cursorPos++;
-				}
-				g_screen->username_field.is_there_new_letter = 0;
-			}
-		}
-
-		else if (g_screen->message_additional_time) {
-			if (g_screen->btn_message_yes.is_clicked) {
-				//give it a very big amount of time
-				ai_give_additional_time(state, true, 100000); //ms
-				SetEvent(ai_get_handle(state));
-
-				g_screen->message_additional_time = 0;
-			}
-			else if (g_screen->btn_message_no.is_clicked) {
-				ai_give_additional_time(state, false, 0);
-				ai_set_stop(state);
-				SetEvent(ai_get_handle(state));
-
-				g_screen->message_ask_for_username = 1;
-
-				g_screen->message_additional_time = 0;
-			}
-		}
-
-		//update percent
-		unsigned int new_percent = (unsigned int) ai_get_percentage(state);
-		if (new_percent != g_screen->percent) {
-			g_screen->percent = new_percent;
-			char percent_s[10] = { 0 };
-			_itoa(new_percent, percent_s, 10);
-			if (g_screen->percent_texture != NULL) SDL_DestroyTexture(g_screen->percent_texture);
-			g_screen->percent_texture = createTextureFromText(renderer, context->text_font, percent_s);
-			fprintf(stderr, "etxtreuwioruwe\n");
-		}
+		update_computer_turn(renderer, *game, state, lb, context, g_screen);
 	}
 
 	//All this conditions will not met if it`s a compute`s turn (current_player == 2), because no one button will be marked as clicked and no one key will be marked as pressed
@@ -1686,16 +1766,28 @@ static void render_field(SDL_Renderer* renderer, UICell grid[][FIELD_SIZE], bool
 }
 
 static void render_words_area(SDL_Renderer* renderer, ScreenContext* context, GameScreen* g_screen) {
-	//äîáàâèòü èíäèêàòîð ïðîêðóòêè?
+	//user
 	SDL_RenderDrawRect(renderer, &g_screen->user_words.rect);
-	SDL_Rect words_rect1 = (SDL_Rect){ 20, 20, 0, 0 };
-	SDL_QueryTexture(g_screen->user_words.texture, NULL, NULL, &words_rect1.w, &words_rect1.h);
-	SDL_RenderCopy(renderer, g_screen->user_words.texture, NULL, &words_rect1);
 
+	SDL_Rect dst_rect = g_screen->user_words.rect;
+	dst_rect.y += WORDS_AREA_PADDING;
+	dst_rect.h -= WORDS_AREA_PADDING * 2;
+	SDL_Rect src_rect = { 0, 0, 0, 0 };
+	src_rect.y = g_screen->user_words.scroll * (context->text_font_height + WORDS_AREA_TEXT_INRERVAL) - WORDS_AREA_TEXT_INRERVAL / 2;
+	src_rect.w = WORDS_AREA_WIDTH;
+	src_rect.h = (context->text_font_height + WORDS_AREA_TEXT_INRERVAL) * g_screen->page_limit;
+	SDL_RenderCopy(renderer, g_screen->user_words.texture, &src_rect, &dst_rect);
+
+	//computer
 	SDL_RenderDrawRect(renderer, &g_screen->computer_words.rect);
-	SDL_Rect words_rect2 = (SDL_Rect){ SCREEN_WIDTH - 20, SCREEN_HEIGHT - 20, 0, 0 };
-	SDL_QueryTexture(g_screen->computer_words.texture, NULL, NULL, &words_rect2.w, &words_rect2.h);
-	SDL_RenderCopy(renderer, g_screen->computer_words.texture, NULL, &words_rect2);
+	dst_rect = g_screen->computer_words.rect;
+	dst_rect.y += WORDS_AREA_PADDING;
+	dst_rect.h -= WORDS_AREA_PADDING * 2;
+	src_rect = (SDL_Rect){ 0, 0, 0, 0 };
+	src_rect.y = g_screen->computer_words.scroll * (context->text_font_height + WORDS_AREA_TEXT_INRERVAL) - WORDS_AREA_TEXT_INRERVAL / 2;
+	src_rect.w = WORDS_AREA_WIDTH;
+	src_rect.h = (context->text_font_height + WORDS_AREA_TEXT_INRERVAL) * g_screen->page_limit;
+	SDL_RenderCopy(renderer, g_screen->computer_words.texture, &src_rect, &dst_rect);
 }
 
 static void ui_render_game(SDL_Renderer* renderer, ScreenContext* context, GameScreen* g_screen) {
@@ -1706,6 +1798,16 @@ static void ui_render_game(SDL_Renderer* renderer, ScreenContext* context, GameS
 	render_button(renderer, &g_screen->btn_down);
 	render_button(renderer, &g_screen->btn_left);
 	render_button(renderer, &g_screen->btn_right);
+
+	SDL_Rect rect = { 50, 20, 0, 0 };
+	SDL_QueryTexture(g_screen->player_texture, NULL, NULL, &rect.w, &rect.h);
+	SDL_RenderCopy(renderer, g_screen->player_texture, NULL, &rect);
+	SDL_RenderCopy(renderer, g_screen->player_texture, NULL, &rect);
+	rect = (SDL_Rect) { 0, 20, 0, 0 };
+	SDL_QueryTexture(g_screen->computer_texture, NULL, NULL, &rect.w, &rect.h);
+	rect.x = SCREEN_WIDTH - rect.w - 40;
+	SDL_RenderCopy(renderer, g_screen->computer_texture, NULL, &rect);
+	SDL_RenderCopy(renderer, g_screen->computer_texture, NULL, &rect);
 
 	render_words_area(renderer, context,  g_screen);
 

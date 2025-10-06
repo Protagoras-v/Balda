@@ -896,21 +896,54 @@ StatusCode game_get_score(Game* game, int id, int* score) {
 }
 
 //put pointer on current playerX_words into char*** words
+//StatusCode game_get_player_words(Game* game, int player_id, char*** words, int* count) {
+//	if (game == NULL) return ERROR_NULL_POINTER;
+//
+//	if (player_id == 1) {
+//		*words = game->player1_words.words;
+//		*count = game->player1_words.count;
+//		return SUCCESS;
+//	}
+//	else if (player_id == 2) {
+//		*words = game->player2_words.words;
+//		*count = game->player2_words.count;
+//		return SUCCESS;
+//	}
+//
+//	return GAME_INVALID_ID;
+//}
+
 StatusCode game_get_player_words(Game* game, int player_id, char*** words, int* count) {
-	if (game == NULL) return ERROR_NULL_POINTER;
+	// просто чтоб не ругалс€ на неиспользуемые параметры
+	(void)game;
+	(void)player_id;
 
-	if (player_id == 1) {
-		*words = game->player1_words.words;
-		*count = game->player1_words.count;
-		return SUCCESS;
-	}
-	else if (player_id == 2) {
-		*words = game->player2_words.words;
-		*count = game->player2_words.count;
-		return SUCCESS;
+	*count = 20;  // количество слов
+	*words = malloc(sizeof(char*) * (*count));
+	if (!*words) {
+		return ERROR_OUT_OF_MEMORY; // или твой код ошибки
 	}
 
-	return GAME_INVALID_ID;
+	const char* test_words[20] = {
+		"молоко", "дерево", "солнце", "вода", "ветер",
+		"камень", "река", "небо", "гора", "птица",
+		"трава", "огонь", "земл€", "зверь", "дуааааа",
+		"глаз", "рука", "знак", "мир", "ночь"
+	};
+
+	for (int i = 0; i < *count; i++) {
+		(*words)[i] = malloc(strlen(test_words[i]) + 1);
+		if (!(*words)[i]) {
+			// если malloc не удалс€ Ч освободим всЄ, что уже выделили
+			for (int j = 0; j < i; j++)
+				free((*words)[j]);
+			free(*words);
+			return ERROR_OUT_OF_MEMORY;
+		}
+		strcpy((*words)[i], test_words[i]);
+	}
+
+	return SUCCESS;
 }
 
 StatusCode game_get_word(Game* game, char word[]) {

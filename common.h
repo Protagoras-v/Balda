@@ -36,7 +36,7 @@
 #define MAX_UI_BUFFER_SIZE 60 //bufer size for cp1251 text like a btn.text
 #define MAX_UI_UTF8_BUFFER_SIZE 2 * MAX_UI_BUFFER_SIZE //every cp1251 ru letter = 2 bytes in utf8
 
-#define SCREEN_HEIGHT 750   
+#define SCREEN_HEIGHT 900   
 #define SCREEN_WIDTH 1200 // было 900
 
 #define ALERT_WIDTH 600
@@ -57,10 +57,10 @@
 #define CELL_FONT_FILENAME "fonts/seenonim.ttf"
 #define CELL_FONT_SIZE 22
 
-#define WORDS_AREA_WIDTH 200
-#define WORDS_AREA_HEIGHT 600
+#define WORDS_AREA_WIDTH 150
+#define WORDS_AREA_HEIGHT 360
 #define WORDS_AREA_PADDING 10
-#define WORDS_AREA_TEXT_INRERVAL 5
+#define WORDS_AREA_TEXT_INRERVAL 10
 
 #define MIN(a, b) (((a) < (b)) ? (a) : (b))
 #define MAX(a, b) (((a) > (b)) ? (a) : (b))
