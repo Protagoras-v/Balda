@@ -37,7 +37,7 @@ Game* game_create(GameSettings* settings, Dictionary* dict);
 
 void game_destroy(Game** game_);
 
-StatusCode game_load(Game* game, const char* filename);
+Game* game_load(Dictionary* dict, const char* filename);
 
 StatusCode game_save(Game* game, const char* filename);
 

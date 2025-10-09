@@ -896,55 +896,56 @@ StatusCode game_get_score(Game* game, int id, int* score) {
 }
 
 //put pointer on current playerX_words into char*** words
-//StatusCode game_get_player_words(Game* game, int player_id, char*** words, int* count) {
-//	if (game == NULL) return ERROR_NULL_POINTER;
-//
-//	if (player_id == 1) {
-//		*words = game->player1_words.words;
-//		*count = game->player1_words.count;
-//		return SUCCESS;
-//	}
-//	else if (player_id == 2) {
-//		*words = game->player2_words.words;
-//		*count = game->player2_words.count;
-//		return SUCCESS;
-//	}
-//
-//	return GAME_INVALID_ID;
-//}
-
 StatusCode game_get_player_words(Game* game, int player_id, char*** words, int* count) {
-	// просто чтоб не ругалс€ на неиспользуемые параметры
-	(void)game;
-	(void)player_id;
+	if (game == NULL) return ERROR_NULL_POINTER;
 
-	*count = 20;  // количество слов
-	*words = malloc(sizeof(char*) * (*count));
-	if (!*words) {
-		return ERROR_OUT_OF_MEMORY; // или твой код ошибки
+	if (player_id == 1) {
+		*words = game->player1_words.words;
+		*count = game->player1_words.count;
+		return SUCCESS;
+	}
+	else if (player_id == 2) {
+		*words = game->player2_words.words;
+		*count = game->player2_words.count;
+		return SUCCESS;
 	}
 
-	const char* test_words[20] = {
-		"молоко", "дерево", "солнце", "вода", "ветер",
-		"камень", "река", "небо", "гора", "птица",
-		"трава", "огонь", "земл€", "зверь", "дуааааа",
-		"глаз", "рука", "знак", "мир", "ночь"
-	};
-
-	for (int i = 0; i < *count; i++) {
-		(*words)[i] = malloc(strlen(test_words[i]) + 1);
-		if (!(*words)[i]) {
-			// если malloc не удалс€ Ч освободим всЄ, что уже выделили
-			for (int j = 0; j < i; j++)
-				free((*words)[j]);
-			free(*words);
-			return ERROR_OUT_OF_MEMORY;
-		}
-		strcpy((*words)[i], test_words[i]);
-	}
-
-	return SUCCESS;
+	return GAME_INVALID_ID;
 }
+
+//FUNCTION FOR SCROLLING TEST
+//StatusCode game_get_player_words(Game* game, int player_id, char*** words, int* count) {
+//	// просто чтоб не ругалс€ на неиспользуемые параметры
+//	(void)game;
+//	(void)player_id;
+//
+//	*count = 20;  // количество слов
+//	*words = malloc(sizeof(char*) * (*count));
+//	if (!*words) {
+//		return ERROR_OUT_OF_MEMORY; // или твой код ошибки
+//	}
+//
+//	const char* test_words[20] = {
+//		"молоко", "дерево", "солнце", "вода", "ветер",
+//		"камень", "река", "небо", "гора", "птица",
+//		"трава", "огонь", "земл€", "зверь", "дуааааа",
+//		"глаз", "рука", "знак", "мир", "ночь"
+//	};
+//
+//	for (int i = 0; i < *count; i++) {
+//		(*words)[i] = malloc(strlen(test_words[i]) + 1);
+//		if (!(*words)[i]) {
+//			// если malloc не удалс€ Ч освободим всЄ, что уже выделили
+//			for (int j = 0; j < i; j++)
+//				free((*words)[j]);
+//			free(*words);
+//			return ERROR_OUT_OF_MEMORY;
+//		}
+//		strcpy((*words)[i], test_words[i]);
+//	}
+//
+//	return SUCCESS;
+//}
 
 StatusCode game_get_word(Game* game, char word[]) {
 	if (game == NULL) return ERROR_NULL_POINTER;
@@ -1106,7 +1107,13 @@ unsigned int game_get_settings_first_player(GameSettings* settings) {
 
 
 StatusCode game_save(Game* game, const char* filename) {
-	FILE* file = fopen(filename, "wb+");
+	char path[MAX_PATH_LEN] = "saves/";
+	int j = 6;
+	for (int i = 0; filename[i]; i++) {
+		path[j++] = filename[i];
+	}
+
+	FILE* file = fopen(path, "wb+");
 	if (file == NULL) {
 		return ERROR_FILE_NOT__FOUND;
 	}
@@ -1177,10 +1184,24 @@ StatusCode game_save(Game* game, const char* filename) {
 }
 
 
-StatusCode game_load(Game* game, const char* filename) {
-	FILE* file = fopen(filename, "rb");
+Game* game_load(Dictionary* dict, const char* filename) {
+	GameSettings* settings = malloc(sizeof(GameSettings));
+	if (settings == NULL) {
+		fprintf(stderr, "ќшибка при выделении пам€ти в game_load()\n");
+		return NULL;
+	}
+
+	Game* game= game_create(settings, dict);
+
+	char path[MAX_PATH_LEN] = "saves/";
+	int j = 6;
+	for (int i = 0; filename[i]; i++) {
+		path[j++] = filename[i];
+	}
+
+	FILE* file = fopen(path, "rb");
 	if (file == NULL) {
-		return ERROR_FILE_NOT__FOUND;
+		return NULL;
 	}
 
 	unsigned char c = 0;
@@ -1201,6 +1222,9 @@ StatusCode game_load(Game* game, const char* filename) {
 	game->scores[0] = sh;
 	fread(&sh, 2, 1, file);
 	game->scores[1] = sh;
+
+	//also write game->current_move.score for correct work
+	game->current_move.score = (game->current_player == 1) ? game->scores[0] : game->scores[1];
 
 	// SETTINGS
 	fread(&sh, 2, 1, file);
@@ -1265,7 +1289,7 @@ StatusCode game_load(Game* game, const char* filename) {
 	}
 
 	fclose(file);
-	return SUCCESS;
+	return game;
 }
 
 

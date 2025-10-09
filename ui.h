@@ -49,11 +49,21 @@ typedef struct InputField {
 
 typedef struct MainScreen {
 	SDL_Texture* header;
+	SDL_Texture* texture_message_filename;
+	SDL_Texture* texture_message_invalid_input;
+
 	Button btn_new_game;
 	Button btn_load_game;
 	Button btn_to_settings;
 	Button btn_to_leaderboard;
 	Button btn_exit;
+	InputField filename_field;
+
+	unsigned int message_filename : 1;
+	unsigned int message_invalid_input : 1;
+	unsigned int close_message : 1; //signal for closing message_invalid_input when user press ENTER
+
+	SDL_Rect rect_message;
 } MainScreen;
 
 typedef struct SettingsScreen {
@@ -94,6 +104,9 @@ typedef struct UICell {
 } UICell;
 
 typedef struct GameScreen {
+	Button btn_exit;
+	Button btn_save;
+
 	SDL_Texture* percent_texture;
 	unsigned int percent : 7;
 
@@ -142,14 +155,19 @@ typedef struct GameScreen {
 	SDL_Texture* need_additional_time_texture2;
 
 	SDL_Texture* ask_for_username_message_texture;
-	InputField username_field;
+	InputField input_field;
 
 	SDL_Texture* end_game_message_texture;
+
+	SDL_Texture* quit_confirm_message_texture;
+	SDL_Texture* save_message_texture;
 
 	unsigned int message_additional_time : 1;
 	unsigned int message_invalid_word : 1;
 	unsigned int message_ask_for_username : 1;
 	unsigned int message_end_game : 1;
+	unsigned int message_quit_confirm : 1; //are you sure?
+	unsigned int message_save : 1;
 
 	//user`s and computer`s words
 	unsigned int page_limit : 6; // max number of words displayed in the words area without scrolling
@@ -157,6 +175,9 @@ typedef struct GameScreen {
 	WordsArea computer_words;
 	int user_scroll : 6; //if not zero - it will be handled in ui_update_logic()
 	int comp_scroll : 6; //if not zero - it will be handled in ui_update_logic()
+
+	SDL_Texture* user_score;
+	SDL_Texture* comp_score;
 
 } GameScreen;
 

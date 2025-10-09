@@ -10,7 +10,8 @@
 #include <stdlib.h>
 #include <locale.h>
 
-
+#define MAX_PATH_LEN 100
+#define INPUT_FIELD_LIMIT 25
 #define MAX_WORD_LEN 26
 #define FIELD_SIZE 5
 #define LEADERBOARD_SIZE 15
@@ -20,8 +21,8 @@
 
 //game_logic
 #define STARTING_PLAYER_WORDS_CAPACITY 50
-#define DEFAULT_DIFFICULTY 0
-#define DEFAULT_MAX_TIME 100 //ms
+#define DEFAULT_DIFFICULTY 1
+#define DEFAULT_MAX_TIME 50000 //ms
 #define DEFAULT_FIRST_PLAYER 1
 
 
@@ -39,7 +40,7 @@
 #define SCREEN_HEIGHT 900   
 #define SCREEN_WIDTH 1200 // было 900
 
-#define ALERT_WIDTH 600
+#define ALERT_WIDTH 700
 #define ALERT_HEIGHT 250
 #define ALERT_Y SCREEN_HEIGHT / 2 - ALERT_HEIGHT
 #define ALERT_X SCREEN_WIDTH / 2 - ALERT_WIDTH / 2

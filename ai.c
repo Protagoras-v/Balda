@@ -271,8 +271,6 @@ static void ai_easy(Dictionary* dict, Game* game_copy, AIState* state) {
 	state->end_time = GetTickCount64() + state->time_limit;
 	int counter = 0;
 
-	//Sleep(1000);
-
 	GameField* field = game_get_field(game_copy);
 	if (field == NULL) {
 		fprintf(stderr, "Ошибка при получении поля game_get_field()\n");
@@ -563,6 +561,7 @@ static SearchCode greedy_algorithm(Dictionary* dict, Game* game_copy, AIState* s
 	//try all candidates
 	for (int i = 0; i < count; i++) {
 		for (int let = 0; let < 33; let++) {
+			//Sleep(20);
 			//progress
 			unsigned char new_perc_val = ((i * 33 + let) * 100) / total_combinations;
 			InterlockedExchange8(&state->percentage, new_perc_val);
