@@ -13,7 +13,7 @@
 #define MAX_PATH_LEN 100
 #define INPUT_FIELD_LIMIT 25
 #define MAX_WORD_LEN 26
-#define FIELD_SIZE 5
+#define DEFAULT_FIELD_SIZE 5
 #define LEADERBOARD_SIZE 15
 #define LEADERBOARD_MAX_NAME_LEN 30
 #define MIN_WORD_LEN 3
@@ -29,6 +29,7 @@
 //dict
 #define FILE_NAME "dictionary.txt"
 #define FILE_STARTING_WORDS "starting_words.txt"
+//#define FILE_STARTING_WORDS "dictionary.txt"
 
 //ai
 #define MINIMAX_DEPTH 2

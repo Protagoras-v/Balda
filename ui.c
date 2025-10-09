@@ -20,8 +20,8 @@
 
 
 static void ui_clear_word_selection(GameScreen* g_screen) {
-	for (int y = 0; y < FIELD_SIZE; y++) {
-		for (int x = 0; x < FIELD_SIZE; x++) {
+	for (int y = 0; y < g_screen->field_height; y++) {
+		for (int x = 0; x < g_screen->field_width; x++) {
 			g_screen->grid[y][x].is_selected = 0;
 		}
 	}
@@ -237,6 +237,8 @@ static void load_game_screen(SDL_Renderer* renderer, ScreenContext* context, Gam
 	int start_y = 0;
 	int cell_size = 0;
 	game_get_field_size(game, &h, &w);
+	g_screen->field_height = h;
+	g_screen->field_width = w;
 	//for different field sizes - different coordinates of cell[0][0]
 	if (w == 5 && h == 5) {
 		start_x = 350;
@@ -244,8 +246,30 @@ static void load_game_screen(SDL_Renderer* renderer, ScreenContext* context, Gam
 		cell_size = 100;
 	}
 	else {
-		fprintf(stderr, "ERROR: THERE ARE NO start_x AND start_y VALUES FOR %d x %d field!!!\n", h, w);
+		start_x = 335;
+		start_y = 75;
+		cell_size = 75;
 	}
+
+	//allocate memory for grid[][]
+	g_screen->grid = malloc(sizeof(UICell*) * h);
+	if (g_screen->grid == NULL) {
+		fprintf(stderr, "Memory allocation failed!\n");
+		return;
+	}
+	for (int y = 0; y < h; y++) {
+		g_screen->grid[y] = calloc(w, sizeof(UICell));
+		if (g_screen->grid[y] == NULL) {
+			while (y > 0) {
+				y--;
+				free(g_screen->grid[y]);
+			}
+			free(g_screen->grid);
+			fprintf(stderr, "Memory allocation failed!\n");
+			return;
+		}
+	}
+	//set grid (coords and letters)
 	for (int y = 0; y < h; y++) {
 		for (int x = 0; x < w; x++) {
 			g_screen->grid[y][x].rect = (SDL_Rect){ start_x + cell_size * x, start_y + cell_size * y, cell_size, cell_size };
@@ -318,17 +342,20 @@ static void update_game_screen(SDL_Renderer* renderer, ScreenContext* context, G
 
 
 static void destroy_game_screen(GameScreen* g_screen, Game* game) {
-	int w, h;
-	game_get_field_size(game, &h, &w);
-	for (int y = 0; y < h; y++) {
-		for (int x = 0; x < w; x++) {
+	for (int y = 0; y < g_screen->field_height; y++) {
+		for (int x = 0; x < g_screen->field_width; x++) {
 			if (g_screen->grid[y][x].texture != NULL) SDL_DestroyTexture(g_screen->grid[y][x].texture);
 			g_screen->grid[y][x].texture = NULL;
 			g_screen->grid[y][x].is_cursored = 0;
 			g_screen->grid[y][x].is_selected = 0;
 			g_screen->grid[y][x].rect = (SDL_Rect){ 0, 0, 0, 0 };
 		}
+		free(g_screen->grid[y]);
 	}
+	free(g_screen->grid);
+	g_screen->field_height = 0;
+	g_screen->field_width = 0;
+
 	/*SDL_DestroyTexture(g_screen->ask_for_username_message_texture);
 	SDL_DestroyTexture(g_screen->computer_score_texture);
 	SDL_DestroyTexture(g_screen->computer_texture);
@@ -639,7 +666,6 @@ StatusCode ui_set_screen_context(
 		return UI_SDL_TEXTURE_ERROR;
 	}
 
-
 	sett_screen->time_limit = createTextureFromText(renderer, context->btn_font, "Лимит хода компьютера (мс)");
 	if (sett_screen->first_player == NULL) {
 		return UI_SDL_TEXTURE_ERROR;
@@ -650,6 +676,30 @@ StatusCode ui_set_screen_context(
 	sett_screen->timelimit_field.is_clicked = 0;
 	_itoa(timelimit, sett_screen->timelimit_field.text, 10);
 	sett_screen->timelimit_field.cursorPos = strlen(sett_screen->timelimit_field.text);
+
+	//5x5 or 7x7
+	strncpy_s(sett_screen->btn_5x5.text, MAX_UI_BUFFER_SIZE, "5x5", MAX_UI_BUFFER_SIZE);
+	sett_screen->btn_5x5.rect = (SDL_Rect){ 350, 460, 200, 75 };
+	sett_screen->btn_5x5.is_active = 1;
+	sett_screen->btn_5x5.is_hoverable = 0;
+	sett_screen->btn_5x5.is_hovered = 0;
+	sett_screen->btn_5x5.is_clicked = 0;
+	sett_screen->btn_5x5.texture = createTextureFromText(renderer, context->btn_font, sett_screen->btn_5x5.text);
+	if (sett_screen->btn_5x5.texture == NULL) {
+		return UI_SDL_TEXTURE_ERROR;
+	}
+
+	strncpy_s(sett_screen->btn_7x7.text, MAX_UI_BUFFER_SIZE, "7x7", MAX_UI_BUFFER_SIZE);
+	sett_screen->btn_7x7.rect = (SDL_Rect){ 650, 460, 200, 75 };
+	sett_screen->btn_7x7.is_active = 0;
+	sett_screen->btn_7x7.is_hoverable = 0;
+	sett_screen->btn_7x7.is_hovered = 0;
+	sett_screen->btn_7x7.is_clicked = 0;
+	sett_screen->btn_7x7.texture = createTextureFromText(renderer, context->btn_font, sett_screen->btn_7x7.text);
+	if (sett_screen->btn_7x7.texture == NULL) {
+		return UI_SDL_TEXTURE_ERROR;
+	}
+
 
 	//leaderboard
 	lb_screen->count_of_records = 0;
@@ -940,6 +990,8 @@ static void event_settings_mousemotion(SDL_Event e, SettingsScreen* sett_screen)
 		check_button_hovered(e, &sett_screen->btn_hard);
 		check_button_hovered(e, &sett_screen->btn_p1);
 		check_button_hovered(e, &sett_screen->btn_p2);
+		check_button_hovered(e, &sett_screen->btn_5x5);
+		check_button_hovered(e, &sett_screen->btn_7x7);
 	}
 	check_field_hovered(e, &sett_screen->timelimit_field);
 }
@@ -991,6 +1043,20 @@ static void event_settings_mouseclick(SDL_Event e, SettingsScreen* sett_screen) 
 	else if (sett_screen->timelimit_field.is_hovered) {
 		sett_screen->timelimit_field.is_clicked = 1;
 		//is_active will be changed in ui_update_logic()
+	}
+	else if (sett_screen->btn_5x5.is_hovered) {
+		if (!sett_screen->btn_5x5.is_active) {
+			sett_screen->btn_5x5.is_clicked = 1;
+			sett_screen->btn_7x7.is_active = 0;
+			sett_screen->btn_5x5.is_active = 1;
+		}
+	}
+	else if (sett_screen->btn_7x7.is_hovered) {
+		if (!sett_screen->btn_7x7.is_active) {
+			sett_screen->btn_7x7.is_clicked = 1;
+			sett_screen->btn_5x5.is_active = 0;
+			sett_screen->btn_7x7.is_active = 1;
+		}
 	}
 }
 
@@ -1147,8 +1213,8 @@ static void event_game_mousemotion(SDL_Event e, GameScreen* g_screen) {
 	}
 	//it can be 1 only if g_screen->is_letter_placed == 1
 	else if (g_screen->is_space_pressed) {
-		for (int y = 0; y < FIELD_SIZE; y++) {
-			for (int x = 0; x < FIELD_SIZE; x++) {
+		for (int y = 0; y < g_screen->field_height; y++) {
+			for (int x = 0; x < g_screen->field_width; x++) {
 				if (check_cell_selected(e, &g_screen->grid[y][x])) {
 					g_screen->new_selected_cell_x = x;
 					g_screen->new_selected_cell_y = y;
@@ -1500,6 +1566,16 @@ static void ui_update_logic_settings(ScreenContext* context, SettingsScreen* set
 			field->cursorPos++;
 		}
 		sett_screen->timelimit_field.is_there_new_letter = 0;
+	}
+	else if (sett_screen->btn_5x5.is_clicked) {
+		sett_screen->btn_5x5.is_clicked = 0;
+		code = game_set_field_size(settings, 5, 5);
+		if (code != SUCCESS) fprintf(stderr, "err code - %d\n", code);
+	}
+	else if (sett_screen->btn_7x7.is_clicked) {
+		sett_screen->btn_7x7.is_clicked = 0;
+		code = game_set_field_size(settings, 7, 7);
+		if (code != SUCCESS) fprintf(stderr, "err code - %d\n", code);
 	}
 }
 
@@ -1880,7 +1956,7 @@ static void ui_update_logic_game(SDL_Renderer* renderer,
 		g_screen->cursor_y--;
 		g_screen->grid[g_screen->cursor_y][g_screen->cursor_x].is_cursored = 1;
 	}
-	else if (g_screen->btn_down.is_clicked && g_screen->cursor_y < FIELD_SIZE - 1) {
+	else if (g_screen->btn_down.is_clicked && g_screen->cursor_y < g_screen->field_height - 1) {
 		g_screen->btn_down.is_clicked = 0;
 		g_screen->grid[g_screen->cursor_y][g_screen->cursor_x].is_cursored = 0;
 		g_screen->cursor_y++;
@@ -1892,7 +1968,7 @@ static void ui_update_logic_game(SDL_Renderer* renderer,
 		g_screen->cursor_x--;
 		g_screen->grid[g_screen->cursor_y][g_screen->cursor_x].is_cursored = 1;
 	}
-	else if (g_screen->btn_right.is_clicked && g_screen->cursor_x < FIELD_SIZE - 1) {
+	else if (g_screen->btn_right.is_clicked && g_screen->cursor_x < g_screen->field_width - 1) {
 		g_screen->btn_right.is_clicked = 0;
 		g_screen->grid[g_screen->cursor_y][g_screen->cursor_x].is_cursored = 0;
 		g_screen->cursor_x++;
@@ -2069,6 +2145,9 @@ void ui_render_settings(SDL_Renderer* renderer, ScreenContext* context, Settings
 	SDL_RenderCopy(renderer, settings_screen->time_limit, NULL, &text_rect);
 	render_input_field(renderer, &settings_screen->timelimit_field, context);
 
+	render_button(renderer, &settings_screen->btn_5x5);
+	render_button(renderer, &settings_screen->btn_7x7);
+
 	SDL_RenderPresent(renderer);
 }
 
@@ -2122,9 +2201,11 @@ void ui_render_leaderboard(SDL_Renderer* renderer, LeaderboardScreen* lb_screen)
 
 //this function is not suitable for different field sizes, static array grid[][] should be replaced by dinamically allocated one,
 // also its need to receive field_size param
-static void render_field(SDL_Renderer* renderer, UICell grid[][FIELD_SIZE], bool text_input_on) {
-	for (int j = 0; j < FIELD_SIZE; j++) {
-		for (int i = 0; i < FIELD_SIZE; i++) {
+static void render_field(SDL_Renderer* renderer, GameScreen* g_screen, bool text_input_on) {
+	UICell** grid = g_screen->grid;
+
+	for (int j = 0; j < g_screen->field_height; j++) {
+		for (int i = 0; i < g_screen->field_width; i++) {
 			SDL_Rect cell = grid[j][i].rect;
 			if (grid[j][i].is_selected) {
 				SDL_SetRenderDrawColor(renderer, GRAY_HOVERED);
@@ -2213,7 +2294,7 @@ static void ui_render_game(SDL_Renderer* renderer, ScreenContext* context, GameS
 
 	render_percent(renderer, g_screen);
 
-	render_field(renderer, g_screen->grid, g_screen->text_input);
+	render_field(renderer, g_screen, g_screen->text_input);
 
 	//"Player" and "Computer" text
 	SDL_Rect rect = { 80, 95, 0, 0 };

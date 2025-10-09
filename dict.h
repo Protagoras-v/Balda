@@ -11,7 +11,7 @@ void dict_destroy(Dictionary* dict);
 
 bool dict_word_exists(Dictionary* dict, const char* word);
 
-StatusCode dict_get_starting_word(Dictionary* dict, char st_word[]);
+StatusCode dict_get_starting_word(Dictionary* dict, char st_word[], int width);
 
 StatusCode dict_add_word(Dictionary* dict, const char* word);
 

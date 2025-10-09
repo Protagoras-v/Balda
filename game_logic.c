@@ -27,6 +27,8 @@ struct GameSettings {
 	unsigned int time_limit; //ms
 	unsigned int difficulty : 2;
 	unsigned int first_player : 2; // 0 isn`t used, because 0 is an empty cell
+	unsigned int field_height : 8;
+	unsigned int field_width : 8;
 };
 
 struct Game {
@@ -42,23 +44,26 @@ struct Game {
 };
 
 
-static GameField* field_create(Dictionary* dict) {
+static GameField* field_create(Dictionary* dict, int h, int w) {
 	GameField* field = malloc(sizeof(GameField));
 	if (field == NULL) {
 		fprintf(stderr, "Ошибка при выделении памяти для GameField\n");
 		return NULL;
 	}
-	field->grid = malloc(FIELD_SIZE * sizeof(Cell*));
+	field->grid = malloc(h * sizeof(Cell*));
 	if (field->grid == NULL) {
 		fprintf(stderr, "Ошибка при выделении памяти для field->grid\n");
 		free(field);
 		return NULL;
 	}
 
-	for (int i = 0; i < FIELD_SIZE; i++) {
-		field->grid[i] = malloc(FIELD_SIZE * sizeof(Cell));
+	field->height = h;
+	field->width = w;
 
-		//Если произошла ошибка при алокации, ощичаем все выделеное ранее
+	for (int i = 0; i < h; i++) {
+		field->grid[i] = malloc(w * sizeof(Cell));
+
+		//If allocation failed - free all which were allocated before 
 		if (field->grid[i] == NULL) {
 			fprintf(stderr, "Ошибка при выделении памяти для field->grid[%d]\n", i);
 			for (int j = 0; j < i; j++) {
@@ -69,25 +74,21 @@ static GameField* field_create(Dictionary* dict) {
 			return NULL;
 		}
 
-		//инициализация 0-ми
-		for (int j = 0; j < FIELD_SIZE; j++) {
+		for (int j = 0; j < w; j++) {
 			field->grid[i][j].letter = 0;
 			field->grid[i][j].player_id = 0;
 		}
 	}
 
-	//вставляем стартовое слово
-	char word[6];
-	if (dict_get_starting_word(dict, word) == ERROR_OUT_OF_MEMORY) {
+	//insert starting word
+	char word[MAX_WORD_LEN];
+	if (dict_get_starting_word(dict, word, field->width) == ERROR_OUT_OF_MEMORY) {
 		fprintf(stderr, "Ошибка при формировании стартового слова!\n");
 		return NULL;
 	}
-	for (int i = 0; i < 5; i++) {
-		field->grid[2][i].letter = word[i];
+	for (int i = 0; i < w; i++) {
+		field->grid[h / 2][i].letter = word[i];
 	}
-
-	field->height = FIELD_SIZE;
-	field->width = FIELD_SIZE;
 
 	return field;
 }
@@ -369,7 +370,7 @@ Game* game_create(GameSettings* settings, Dictionary* dict) {
 		fprintf(stderr, "Ошибка при выделении памяти для game\n");
 		return NULL;
 	}
-	game->field = field_create(dict);
+	game->field = field_create(dict, settings->field_height, settings->field_width);
 	if (game->field == NULL) {
 		fprintf(stderr, "Ошибка при создании поля\n");
 		free(game);
@@ -1018,6 +1019,8 @@ GameSettings* game_init_settings() {
 	settings->difficulty = DEFAULT_DIFFICULTY;
 	settings->time_limit = DEFAULT_MAX_TIME;
 	settings->first_player = DEFAULT_FIRST_PLAYER;
+	settings->field_height = DEFAULT_FIELD_SIZE;
+	settings->field_width = DEFAULT_FIELD_SIZE;
 
 	return settings;
 }
@@ -1044,6 +1047,14 @@ StatusCode game_set_first_player(GameSettings* settings, int first_player) {
 
 	if (first_player < 1 || first_player > 2) return GAME_INVALID_FIRST_PLAYER;
 	else settings->first_player = first_player;
+	return SUCCESS;
+}
+
+StatusCode game_set_field_size(GameSettings* settings, int h, int w) {
+	if (settings == NULL) return ERROR_NULL_POINTER;
+
+	settings->field_height = h;
+	settings->field_width = w;
 	return SUCCESS;
 }
 
@@ -1190,6 +1201,8 @@ Game* game_load(Dictionary* dict, const char* filename) {
 		fprintf(stderr, "Ошибка при выделении памяти в game_load()\n");
 		return NULL;
 	}
+	settings->field_height = 5;
+	settings->field_width = 5;
 
 	Game* game= game_create(settings, dict);
 
@@ -1294,8 +1307,8 @@ Game* game_load(Dictionary* dict, const char* filename) {
 
 
 void print_field(Game* game) {
-	for (int i = 0; i < FIELD_SIZE; i++) {
-		for (int j = 0; j < FIELD_SIZE; j++) {
+	for (int i = 0; i < game->field->height; i++) {
+		for (int j = 0; j < game->field->width; j++) {
 			char c = game->field->grid[i][j].letter;
 			if (c == 0) {
 				fprintf(stderr, "[ ]");

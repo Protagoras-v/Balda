@@ -117,7 +117,7 @@ static void path_to_char(Path current_path, char* res, int wLen) {
 }
 
 
-static int dfs_easy_direct(AIState* state, Dictionary* dict, GameField* field, Game* game_copy, bool visited[][FIELD_SIZE], Path* path, int y, int x, int* counter) {
+static int dfs_easy_direct(AIState* state, Dictionary* dict, GameField* field, Game* game_copy, bool** visited, Path* path, int y, int x, int* counter) {
 	if (*counter % 256 == 0) {
 		unsigned long long current_time = GetTickCount64();
 		if (current_time >= state->end_time) {
@@ -184,7 +184,7 @@ static int dfs_easy_direct(AIState* state, Dictionary* dict, GameField* field, G
 
 
 // bool because an easy algorithm returns the first word found
-static int dfs_easy_rev(AIState* state, Dictionary* dict, GameField* field, Game* game_copy, bool visited[][FIELD_SIZE], Path* path, int y, int x, int* counter) {
+static int dfs_easy_rev(AIState* state, Dictionary* dict, GameField* field, Game* game_copy, bool** visited, Path* path, int y, int x, int* counter) {
 	//check time limit
 	if (*counter % 256 == 0) {
 		unsigned long long current_time = GetTickCount64();
@@ -262,7 +262,22 @@ static int dfs_easy_rev(AIState* state, Dictionary* dict, GameField* field, Game
 
 
 static int easy_search(AIState* state, Dictionary* dict, GameField* field, Game* game_copy, int y, int x, Path* path, int* counter) {
-	bool visited[FIELD_SIZE][FIELD_SIZE] = { 0 };
+	bool** visited = malloc(field->height * sizeof(bool*));
+	if (visited == NULL) {
+		fprintf(stderr, "ERROR - memory allocation failed in easy_search()!");
+		return 0;
+	}
+	for (int y = 0; y < field->height; y++) {
+		visited[y] = calloc(field->width, sizeof(bool));
+		if (visited[y] == NULL) {
+			while (y > 0) {
+				y--;
+				free(visited[y]);
+			}
+			free(visited);
+			break;
+		}
+	}
 	return dfs_easy_rev(state, dict, field, game_copy, visited, path, y, x, counter);
 }
 
@@ -282,7 +297,7 @@ static void ai_easy(Dictionary* dict, Game* game_copy, AIState* state) {
 	Path path = { 0 };
 	path.len = 0;
 
-	int candidates[20][2]; //candidates for letter placing, 20 because there are 25 - 5 cells for 5x5
+	int candidates[42][2]; //candidates for letter placing, 42 because there are 49 - 7 cells for 7x7
 	int count = 0;
 	for (int y = 0; y < field->height; y++) {
 		for (int x = 0; x < field->width; x++) {
@@ -374,7 +389,7 @@ static void ai_easy(Dictionary* dict, Game* game_copy, AIState* state) {
 //---------------------------------------------------------------------------------------------------------MIDDLE------------------------------------------------------------------------------------------------------------------
 //---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 
-static SearchCode dfs_greedy_direct(AIState* state, Dictionary* dict, GameField* field, Game* game_copy, bool visited[][FIELD_SIZE], Iteration* iteration, Move top_moves[], int y, int x, int* counter) {
+static SearchCode dfs_greedy_direct(AIState* state, Dictionary* dict, GameField* field, Game* game_copy, bool** visited, Iteration* iteration, Move top_moves[], int y, int x, int* counter) {
 	if (*counter % 256 == 0) {
 		unsigned long long now = GetTickCount64();
 		if (now >= state->end_time) {
@@ -432,7 +447,19 @@ static SearchCode dfs_greedy_direct(AIState* state, Dictionary* dict, GameField*
 						}
 						save_move(*iteration, top_moves, i);
 					}
-					//state->is_move_found = 1; //this is not necessery, because we should to check whether the move is found or not by checking top_moves[0].path.len 
+					//
+					//
+					//
+					if (iteration->letter == 'а' && iteration->path.cells[3].y == 3 && iteration->path.cells[3].x == 4) {
+						for (int i = 0; i < 6; i++) {
+							fprintf(stderr, "(%d %d %с)", iteration->path.cells[i].y, iteration->path.cells[i].x, iteration->path.cells[i].letter);
+						}
+						fprintf(stderr, "\n");
+					}	
+					//
+					// //
+					// //
+					//state->is_move_found = 1; //this is not necessary, because we should to check whether the move is found or not by checking top_moves[0].path.len 
 					break;
 				}
 			}
@@ -448,6 +475,9 @@ static SearchCode dfs_greedy_direct(AIState* state, Dictionary* dict, GameField*
 		int newX = x + dx[i];
 
 		if (is_cell_coordinates_valid(field, newY, newX) && !visited[newY][newX] && !is_cell_empty(field, newY, newX)) {
+			/*if (iteration->path.cells[3].y == 3 && iteration->path.cells[3].x == 4 && iteration->path.cells[2].y == 2 && iteration->path.cells[2].x == 4 && y == 3 && x == 3) {
+				fprintf(stderr, "%d\n", !visited[newY][newX]);
+			}*/
 			SearchCode res = dfs_greedy_direct(state, dict, field, game_copy, visited, iteration, top_moves, newY, newX, counter);
 			if (res == TIME_OUT_AND_MOVE_FOUND || res == TIME_OUT_AND_MOVE_NOT_FOUND) return res; 
 		}
@@ -458,7 +488,15 @@ static SearchCode dfs_greedy_direct(AIState* state, Dictionary* dict, GameField*
 }
 
 
-static SearchCode dfs_greedy_rev(AIState* state, Dictionary* dict, GameField* field, Game* game_copy, bool visited[][FIELD_SIZE], Iteration* iteration, Move top_moves[], int y, int x, int* counter) {
+static SearchCode dfs_greedy_rev(AIState* state, Dictionary* dict, GameField* field, Game* game_copy, bool** visited, Iteration* iteration, Move top_moves[], int y, int x, int* counter) {
+	/*fprintf(stderr, "(%d %d)\n", y, x);
+	for (int k = 0; k < 5; k++) {
+		for (int j = 0; j < 5; j++) {
+			fprintf(stderr, "%d ", visited[k][j]);
+		}
+		fprintf(stderr, "\n");
+	}
+	fprintf(stderr, "\n");*/
 	if (*counter % 256 == 0) {
 		unsigned long long now = GetTickCount64();
 		if (now >= state->end_time) {
@@ -493,6 +531,7 @@ static SearchCode dfs_greedy_rev(AIState* state, Dictionary* dict, GameField* fi
 	//add new letter to path, check if this prefix is in trie, if its not - return, otherwise we have to check whether this new letter has the is_end_of_the_word flag
 	iteration->path.cells[iteration->path.len++] = (WordCell){ y, x, field->grid[y][x].letter }; 
 	visited[y][x] = 1;
+	bool val = visited[3][4];
 
 	char prefix[MAX_WORD_LEN];
 	path_to_char(iteration->path, prefix, MAX_WORD_LEN);
@@ -515,6 +554,10 @@ static SearchCode dfs_greedy_rev(AIState* state, Dictionary* dict, GameField* fi
 		if (res == TIME_OUT_AND_MOVE_FOUND || res == TIME_OUT_AND_MOVE_NOT_FOUND) return res;
 		iteration->path.len++;
 		rotate_path(&iteration->path); //if its not then continue searching
+
+		//ТОТ САМЫЙ СЛУЧАЙ С 4 ЧАСАМИ "РАЗМЫШЛЕНИЙ", когда при первом же заходе в dfs_greedy_rev() из greedy_algorithm() срабатывает этот if, и как итог visited[y][x] сбрасывается в 0 после выхода из dfs_greedy_direct(), из-за чего поиск может посещать одну и ту же клетку дважды
+		// ЭТО НУЖНО ДЕЛАТЬ ВСЕГДА, А НЕ ТОЛЬКО В ЧАСТНОМ СЛУЧАЕ!!!!
+		visited[iteration->y][iteration->x] = 1;
 	}
 
 	//up, down, left, right
@@ -546,7 +589,7 @@ static SearchCode greedy_algorithm(Dictionary* dict, Game* game_copy, AIState* s
 	Iteration iteration = { 0 };
 
 	char alphabet[34] = "абвгдеёжзийклмнопрстуфхцчшщъыьэюя";
-	int candidates[20][2]; //candidates for letter placing, 20 because there are 25 - 5 cells for 5x5
+	int candidates[42][2]; //candidates for letter placing, 42 because there are 49 - 7 cells for 7x7
 	int count = 0;
 	for (int y = 0; y < field->height; y++) {
 		for (int x = 0; x < field->width; x++) {
@@ -558,6 +601,24 @@ static SearchCode greedy_algorithm(Dictionary* dict, Game* game_copy, AIState* s
 	}
 	int total_combinations = count * 33;
 	int operations = 0;
+
+	bool** visited = malloc(field->height * sizeof(bool*));
+	if (visited == NULL) {
+		fprintf(stderr, "ERROR - memory allocation failed in easy_search()!");
+		return 0;
+	}
+	for (int j = 0; j < field->height; j++) {
+		visited[j] = calloc(field->width, sizeof(bool));
+		if (visited[j] == NULL) {
+			while (j > 0) {
+				j--;
+				free(visited[j]);
+			}
+			free(visited);
+			return;
+		}
+	}
+
 	//try all candidates
 	for (int i = 0; i < count; i++) {
 		for (int let = 0; let < 33; let++) {
@@ -607,8 +668,13 @@ static SearchCode greedy_algorithm(Dictionary* dict, Game* game_copy, AIState* s
 			iteration.y = y;
 			iteration.x = x;
 
-			bool visited[FIELD_SIZE][FIELD_SIZE] = { 0 };
+			//reset visited
+			for (int row = 0; row < field->height; row++) {
+				memset(visited[row], 0, field->width * sizeof(bool));
+			}
+
 			SearchCode res = dfs_greedy_rev(state, dict, field, game_copy, visited, &iteration, top_moves, y, x, counter);
+			
 			if (res == TIME_OUT_AND_MOVE_NOT_FOUND) {
 				fprintf(stderr, "TIME_OUT_AND_MOVE_NOT_FOUND\n");
 				return res;
@@ -620,6 +686,10 @@ static SearchCode greedy_algorithm(Dictionary* dict, Game* game_copy, AIState* s
 			field->grid[y][x].letter = '\0'; //unlike easy level, we continue until all possible cells have been checked or timeout has expired (and move has been found)
 		}
 	}
+
+	for (int j = 0; j < field->height; j++)
+		free(visited[j]);
+	free(visited);
 
 	if (top_moves[0].word_len != 0) {
 		return MOVE_FOUND;

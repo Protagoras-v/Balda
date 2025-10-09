@@ -196,7 +196,7 @@ StatusCode dict_add_word(Dictionary* dict, const char* word) {
 }
 
 //since this operation executes once when the game is started, there is no problem reading file again
-StatusCode dict_get_starting_word(Dictionary* dict, char st_word[]) {
+StatusCode dict_get_starting_word(Dictionary* dict, char st_word[], int width) {
 	FILE* file = fopen(FILE_STARTING_WORDS, "r");
 	if (file == NULL) {
 		fprintf(stderr, "Не удалось открыть файл %s для выбора начального слова\n", FILE_STARTING_WORDS);
@@ -209,18 +209,17 @@ StatusCode dict_get_starting_word(Dictionary* dict, char st_word[]) {
 
 	char buffer[255] = { 0 };
 	while (fgets(buffer, sizeof(buffer), file) != NULL) {
-		// only 5 letter words
-		if ((buffer[5] == '\n' || buffer[5] == '\0') && buffer[4] != '\n' && buffer[4] != '\0') {
-			buffer[5] = '\0';
-			candidates[count] = malloc(sizeof(char) * 6);
+		if ((buffer[width] == '\n' || buffer[width] == '\0') && buffer[width - 1] != '\n' && buffer[width - 1] != '\0') {
+			buffer[width] = '\0';
+			candidates[count] = malloc(sizeof(char) * width + 1);
 			if (candidates[count] == NULL) {
 				return ERROR_OUT_OF_MEMORY;
 			}
-			strncpy(candidates[count++], buffer, 6);
+			strncpy(candidates[count++], buffer, width + 1);
 		}	
 	}
 
-	strncpy(st_word, candidates[rand() % count], 6);
+	strncpy(st_word, candidates[rand() % count], width + 1);
 
 	for (int i = 0; i < count; i++) {
 		free(candidates[i]);

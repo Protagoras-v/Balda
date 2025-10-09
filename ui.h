@@ -81,6 +81,9 @@ typedef struct SettingsScreen {
 
 	SDL_Texture* time_limit;
 	InputField timelimit_field;
+
+	Button btn_5x5;
+	Button btn_7x7;
 } SettingsScreen;
 
 typedef struct LeaderboardScreen {
@@ -121,7 +124,10 @@ typedef struct GameScreen {
 	Button btn_left;
 	Button btn_right;
 
-	UICell grid[FIELD_SIZE][FIELD_SIZE];
+	UICell** grid;
+	unsigned int field_height : 8;
+	unsigned int field_width : 8;
+
 	unsigned int cursor_x : 8;
 	unsigned int cursor_y : 8;
 

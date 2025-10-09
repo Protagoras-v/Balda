@@ -56,7 +56,7 @@ int main() {
 	LeaderboardScreen lb_screen;
 	GameScreen g_screen;
 
-	if (ui_set_screen_context(renderer, &context, &main_screen, &sett_screen, &lb_screen,&g_screen, settings) != SUCCESS) {
+	if (ui_set_screen_context(renderer, &context, &main_screen, &sett_screen, &lb_screen, &g_screen, settings) != SUCCESS) {
 		return 1;
 	}
 

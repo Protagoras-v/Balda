@@ -104,6 +104,8 @@ StatusCode game_set_difficulty(GameSettings* settings, int difficulty);
 
 StatusCode game_set_first_player(GameSettings* settings, int first_player);
 
+StatusCode game_set_field_size(GameSettings* settings, int h, int w);
+
 unsigned int game_get_settings_difficulty(GameSettings* settings);
 unsigned int game_get_settings_timelimit(GameSettings* settings);
 unsigned int game_get_settings_first_player(GameSettings* settings);
