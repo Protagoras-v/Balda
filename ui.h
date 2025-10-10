@@ -240,4 +240,16 @@ StatusCode ui_set_screen_context(SDL_Renderer* renderer, ScreenContext* context,
 	SettingsScreen* screen_settings,
 	LeaderboardScreen* lb_screen,
 	GameScreen* g_screen,
-	GameSettings* game_settings);
+	GameSettings* game_settings
+);
+
+void ui_destroy_screen_context(
+	SDL_Renderer* renderer,
+	ScreenContext* context,
+	MainScreen* main_screen,
+	SettingsScreen* sett_screen,
+	LeaderboardScreen* lb_screen,
+	Game** game,
+	GameScreen* g_screen,
+	GameSettings* game_settings
+);

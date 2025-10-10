@@ -17,6 +17,15 @@ struct Dictionary {
 	int count;
 };
 
+//used int dict starting word
+static bool is_it_n_len_word(char* word, int n) {
+	if (!((word[n] == '\n' || word[n] == '\0') && word[n - 1] != '\n' && word[n - 1] != '\0')) return 0;
+	for (int i = 0; i < n; i++) {
+		if (!is_it_ru_letter(word[i])) return false;
+	}
+	return true;
+}
+
 
 //возвращает позицию русской буквы в алфавите(1-33)
 static int char_to_index(unsigned char letter) {
@@ -209,7 +218,7 @@ StatusCode dict_get_starting_word(Dictionary* dict, char st_word[], int width) {
 
 	char buffer[255] = { 0 };
 	while (fgets(buffer, sizeof(buffer), file) != NULL) {
-		if ((buffer[width] == '\n' || buffer[width] == '\0') && buffer[width - 1] != '\n' && buffer[width - 1] != '\0') {
+		if (is_it_n_len_word(buffer, width)) {
 			buffer[width] = '\0';
 			candidates[count] = malloc(sizeof(char) * width + 1);
 			if (candidates[count] == NULL) {
@@ -217,6 +226,11 @@ StatusCode dict_get_starting_word(Dictionary* dict, char st_word[], int width) {
 			}
 			strncpy(candidates[count++], buffer, width + 1);
 		}	
+	}
+
+	if (count == 0) {
+		fprintf(stderr, "Ќет слов-кандидатов дл€ стартового слова длины %d!", width);
+		return DICT_ERROR_STARTING_WORD;
 	}
 
 	strncpy(st_word, candidates[rand() % count], width + 1);

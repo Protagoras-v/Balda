@@ -412,7 +412,6 @@ static SearchCode dfs_greedy_direct(AIState* state, Dictionary* dict, GameField*
 			else {
 				fprintf(stderr, "TIME CHECKER ELSE-------\n");
 				InterlockedExchange8(&state->percentage, 100);
-				InterlockedExchange8(&state->is_computation_complete, 1);
 
 				return TIME_OUT_AND_MOVE_FOUND;
 			}
@@ -519,7 +518,6 @@ static SearchCode dfs_greedy_rev(AIState* state, Dictionary* dict, GameField* fi
 			else {
 				fprintf(stderr, "TIME CHECKER ELSE-------\n");
 				InterlockedExchange8(&state->percentage, 100);
-				InterlockedExchange8(&state->is_computation_complete, 1);
 
 				return TIME_OUT_AND_MOVE_FOUND;
 			}
@@ -650,7 +648,6 @@ static SearchCode greedy_algorithm(Dictionary* dict, Game* game_copy, AIState* s
 					else {
 						fprintf(stderr, "TIME CHECKER ELSE-------\n");
 						InterlockedExchange8(&state->percentage, 100);
-						InterlockedExchange8(&state->is_computation_complete, 1);
 
 						return TIME_OUT_AND_MOVE_FOUND;
 					}
@@ -716,7 +713,9 @@ static void ai_mid(Dictionary* dict, Game* game_copy, AIState* state) {
 		state->best_move = top_moves[0];
 		LeaveCriticalSection(&state->critical_section);
 		InterlockedExchange8(&state->percentage, 100);
+		//переделать
 		InterlockedExchange8(&state->is_move_found, 1);
+		InterlockedExchange8(&state->is_computation_complete, 1);
 	}
 	else {
 		InterlockedExchange8(&state->gave_up, 1);
@@ -820,7 +819,7 @@ int minimax(Game* game_copy, Dictionary* dict, AIState* state, int depth, int al
 				//so the condition 
 				//int score = minimax();
 				//if (score > best_score)
-				// will not be met, so there is no sense to continue for loop, because this branch will be discarded by higher level of recurtion 
+				// will not be met, so there is no sense to continue for loop, because this branch will be discarded by higher level of recurtion Я
 				break;
 			}
 			if (*timeout) {
@@ -876,7 +875,6 @@ static void ai_high(Dictionary* dict, Game* game_copy, AIState* state) {
 			}
 		}
 	}
-	fprintf(stderr, "END\n");
 	if (state->is_move_found == 0) {
 		InterlockedExchange8(&state->gave_up, 1);
 	}

@@ -41,7 +41,7 @@ bool is_it_ru_utf8_letter(const unsigned char* c) {
 
 bool is_word_valid(unsigned char* word) {
 	char* s = word;
-	while (*s != '\0') {
+	while (*s != '\0' && *s != '\n') {
 		if (!is_it_ru_letter(*s)) {
 			return 0;
 		}

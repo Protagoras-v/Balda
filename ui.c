@@ -197,7 +197,6 @@ static void update_words_areas(SDL_Renderer* renderer, Game* game, GameScreen* g
 	code = game_get_score(game, 2, &c_score);
 	if (code != SUCCESS) fprintf(stderr, "error code - %d, update_words_areas()\n", code);
 
-	printf("%d %d\n", u_score, c_score);
 	char u_score_s[5];
 	char c_score_s[5];
 	_itoa(u_score, u_score_s, 10);
@@ -356,48 +355,6 @@ static void destroy_game_screen(GameScreen* g_screen, Game* game) {
 	g_screen->field_height = 0;
 	g_screen->field_width = 0;
 
-	/*SDL_DestroyTexture(g_screen->ask_for_username_message_texture);
-	SDL_DestroyTexture(g_screen->computer_score_texture);
-	SDL_DestroyTexture(g_screen->computer_texture);
-	SDL_DestroyTexture(g_screen->end_game_message_texture);
-	SDL_DestroyTexture(g_screen->invalid_word_message_texture);
-	SDL_DestroyTexture(g_screen->need_additional_time_texture1);
-	SDL_DestroyTexture(g_screen->need_additional_time_texture2);
-	SDL_DestroyTexture(g_screen->percent_texture);
-	SDL_DestroyTexture(g_screen->player_score_texture);
-	SDL_DestroyTexture(g_screen->player_texture);
-	SDL_DestroyTexture(g_screen->quit_confirm_message_texture);
-	SDL_DestroyTexture(g_screen->save_message_texture);
-	g_screen->ask_for_username_message_texture = NULL;
-	g_screen->computer_score_texture = NULL;
-	g_screen->computer_texture = NULL;
-	g_screen->end_game_message_texture = NULL;
-	g_screen->invalid_word_message_texture = NULL;
-	g_screen->need_additional_time_texture1 = NULL;
-	g_screen->need_additional_time_texture2 = NULL;
-	g_screen->percent_texture = NULL;
-	g_screen->player_score_texture = NULL;
-	g_screen->player_texture = NULL;
-	g_screen->quit_confirm_message_texture = NULL;
-	g_screen->save_message_texture = NULL;
-
-	SDL_DestroyTexture(g_screen->btn_down.texture);
-	SDL_DestroyTexture(g_screen->btn_up.texture);
-	SDL_DestroyTexture(g_screen->btn_left.texture);
-	SDL_DestroyTexture(g_screen->btn_right.texture);
-	SDL_DestroyTexture(g_screen->btn_exit.texture);
-	SDL_DestroyTexture(g_screen->btn_save.texture);
-	SDL_DestroyTexture(g_screen->btn_message_no.texture);
-	SDL_DestroyTexture(g_screen->btn_message_yes.texture);
-	g_screen->btn_down.texture = NULL;
-	g_screen->btn_up.texture = NULL;
-	g_screen->btn_left.texture = NULL;
-	g_screen->btn_right.texture = NULL;
-	g_screen->btn_exit.texture = NULL;
-	g_screen->btn_save.texture = NULL;
-	g_screen->btn_message_no.texture = NULL;
-	g_screen->btn_message_yes.texture = NULL;*/
-
 	SDL_DestroyTexture(g_screen->user_words.texture);
 	g_screen->user_words.texture = NULL;
 	g_screen->user_words.is_hovered = 0;
@@ -469,6 +426,95 @@ StatusCode ui_init(SDL_Window** window, SDL_Renderer** renderer) {
 		}
 	}
 	return SUCCESS;
+}
+
+
+void ui_destroy_screen_context(
+	SDL_Renderer* renderer,
+	ScreenContext* context,
+	MainScreen* main_screen,
+	SettingsScreen* sett_screen,
+	LeaderboardScreen* lb_screen,
+	Game** game,
+	GameScreen* g_screen,
+	GameSettings* game_settings) 
+{
+	//game
+	if (*game != NULL) destroy_game_screen(g_screen, *game);
+	SDL_DestroyTexture(g_screen->ask_for_username_message_texture);
+	SDL_DestroyTexture(g_screen->computer_score_texture);
+	SDL_DestroyTexture(g_screen->computer_texture);
+	SDL_DestroyTexture(g_screen->end_game_message_texture);
+	SDL_DestroyTexture(g_screen->invalid_word_message_texture);
+	SDL_DestroyTexture(g_screen->need_additional_time_texture1);
+	SDL_DestroyTexture(g_screen->need_additional_time_texture2);
+	SDL_DestroyTexture(g_screen->percent_texture);
+	SDL_DestroyTexture(g_screen->player_score_texture);
+	SDL_DestroyTexture(g_screen->player_texture);
+	SDL_DestroyTexture(g_screen->quit_confirm_message_texture);
+	SDL_DestroyTexture(g_screen->save_message_texture);
+	g_screen->ask_for_username_message_texture = NULL;
+	g_screen->computer_score_texture = NULL;
+	g_screen->computer_texture = NULL;
+	g_screen->end_game_message_texture = NULL;
+	g_screen->invalid_word_message_texture = NULL;
+	g_screen->need_additional_time_texture1 = NULL;
+	g_screen->need_additional_time_texture2 = NULL;
+	g_screen->percent_texture = NULL;
+	g_screen->player_score_texture = NULL;
+	g_screen->player_texture = NULL;
+	g_screen->quit_confirm_message_texture = NULL;
+	g_screen->save_message_texture = NULL;
+
+	SDL_DestroyTexture(g_screen->btn_down.texture);
+	SDL_DestroyTexture(g_screen->btn_up.texture);
+	SDL_DestroyTexture(g_screen->btn_left.texture);
+	SDL_DestroyTexture(g_screen->btn_right.texture);
+	SDL_DestroyTexture(g_screen->btn_exit.texture);
+	SDL_DestroyTexture(g_screen->btn_save.texture);
+	SDL_DestroyTexture(g_screen->btn_message_no.texture);
+	SDL_DestroyTexture(g_screen->btn_message_yes.texture);
+	g_screen->btn_down.texture = NULL;
+	g_screen->btn_up.texture = NULL;
+	g_screen->btn_left.texture = NULL;
+	g_screen->btn_right.texture = NULL;
+	g_screen->btn_exit.texture = NULL;
+	g_screen->btn_save.texture = NULL;
+	g_screen->btn_message_no.texture = NULL;
+	g_screen->btn_message_yes.texture = NULL;
+
+	//main
+	SDL_DestroyTexture(main_screen->header);SDL_DestroyTexture(g_screen->btn_down.texture);
+	SDL_DestroyTexture(main_screen->texture_message_filename);SDL_DestroyTexture(g_screen->btn_down.texture);
+	SDL_DestroyTexture(main_screen->texture_message_invalid_input);SDL_DestroyTexture(g_screen->btn_down.texture);
+
+	SDL_DestroyTexture(main_screen->btn_new_game.texture);
+	SDL_DestroyTexture(main_screen->btn_load_game.texture);
+	SDL_DestroyTexture(main_screen->btn_to_settings.texture);
+	SDL_DestroyTexture(main_screen->btn_to_leaderboard.texture);
+	SDL_DestroyTexture(main_screen->btn_exit.texture);
+	
+	//settings
+	SDL_DestroyTexture(sett_screen->header);
+	SDL_DestroyTexture(sett_screen->first_player);
+	SDL_DestroyTexture(sett_screen->time_limit);
+	SDL_DestroyTexture(sett_screen->btn_to_main.texture);
+	SDL_DestroyTexture(sett_screen->btn_easy.texture);
+	SDL_DestroyTexture(sett_screen->btn_mid.texture);
+	SDL_DestroyTexture(sett_screen->btn_hard.texture);
+	SDL_DestroyTexture(sett_screen->btn_p1.texture);
+	SDL_DestroyTexture(sett_screen->btn_p2.texture);
+	SDL_DestroyTexture(sett_screen->btn_5x5.texture);
+	SDL_DestroyTexture(sett_screen->btn_7x7.texture);
+
+	//leaderboard
+	SDL_DestroyTexture(lb_screen->header);
+	for (int i = 0; i < lb_screen->count_of_records; i++) {
+		SDL_DestroyTexture(lb_screen->users[i]);
+		SDL_DestroyTexture(lb_screen->scores[i]);
+		SDL_DestroyTexture(lb_screen->nums[i]);
+	}
+	SDL_DestroyTexture(lb_screen->btn_back.texture);
 }
 
 
@@ -1101,7 +1147,6 @@ static void event_game_keydown(SDL_Event e, GameScreen* g_screen) {
 			return;
 		}
 		else if (!g_screen->is_letter_placed) {
-			printf("ENTER PRESSED\n");
 			g_screen->input_switch = 1;
 		}
 		else {
@@ -1224,7 +1269,7 @@ static void event_game_mousemotion(SDL_Event e, GameScreen* g_screen) {
 		}
 	}
 	//if no one pop-up message is active we can handle exit and save buttons hover
-	if (!g_screen->message_end_game && !g_screen->message_quit_confirm && !g_screen->message_save) {
+	if (!g_screen->message_end_game && !g_screen->message_quit_confirm && !g_screen->message_save && !g_screen->message_additional_time && !g_screen->message_ask_for_username && !g_screen->message_invalid_word) {
 		check_button_hovered(e, &g_screen->btn_exit);
 		check_button_hovered(e, &g_screen->btn_save);
 	}
@@ -1240,6 +1285,7 @@ static void event_game_mouseclick(SDL_Event e, GameScreen* g_screen) {
 	else if (g_screen->btn_message_yes.is_hovered) {
 		g_screen->btn_message_yes.is_hovered = 0;
 		g_screen->btn_message_yes.is_clicked = 1;
+		//printf("btn_message_yes.is_cliked\n");
 	}
 	else if (g_screen->btn_message_no.is_hovered) {
 		g_screen->btn_message_no.is_hovered = 0;
@@ -1279,11 +1325,9 @@ static void event_game_mousewheel(SDL_Event e, GameScreen* g_screen) {
 	//In SDL y = 0 is a top of the page, so you'd expec tha scrolling wheel handling events to be the same... No, actually WHEEL UP - add_scroll = +1, DOWN - -1, i think that's illogical, so I decide to invert it
 	if (g_screen->user_words.is_hovered) {
 		g_screen->user_scroll = -e.wheel.y;
-		printf("%d", -e.wheel.y);
 	}
 	else if (g_screen->computer_words.is_hovered) {
 		g_screen->comp_scroll = -e.wheel.y;
-		printf("%d", -e.wheel.y);
 	}
 }
 
@@ -1305,7 +1349,6 @@ StatusCode ui_handle_events(SDL_Renderer* render, ScreenContext* context,
 					event_mainmenu_mousemotion(e, main_screen);
 				}
 				else if (e.type == SDL_MOUSEBUTTONDOWN) {
-					printf("click\n");
 					event_mainmenu_mouseclick_down(e, main_screen);
 				}
 				else if (e.type == SDL_KEYDOWN) {
@@ -1320,7 +1363,6 @@ StatusCode ui_handle_events(SDL_Renderer* render, ScreenContext* context,
 					event_settings_mousemotion(e, sett_screen);
 				}
 				else if (e.type == SDL_MOUSEBUTTONDOWN) {
-					printf("click\n");
 					event_settings_mouseclick(e, sett_screen);
 				}
 				else if (e.type == SDL_KEYDOWN) {
@@ -1336,7 +1378,6 @@ StatusCode ui_handle_events(SDL_Renderer* render, ScreenContext* context,
 					event_lb_mousemotion(e, lb_screen);
 				}
 				else if (e.type == SDL_MOUSEBUTTONDOWN) {
-					printf("click\n");
 					event_lb_mouseclick(e, lb_screen);
 				}
 				break;
@@ -1515,7 +1556,6 @@ static void ui_update_logic_settings(ScreenContext* context, SettingsScreen* set
 	}
 	else if (sett_screen->btn_mid.is_clicked) {
 		sett_screen->btn_mid.is_clicked = 0;
-		printf("TES\n");
 		code = game_set_difficulty(settings, 1);
 		if (code != SUCCESS) fprintf(stderr, "err code - %d\n", code);
 	}
@@ -1524,7 +1564,16 @@ static void ui_update_logic_settings(ScreenContext* context, SettingsScreen* set
 		code = game_set_difficulty(settings, 2);
 		if (code != SUCCESS) fprintf(stderr, "err code - %d\n", code);
 	}
-
+	else if (sett_screen->btn_p1.is_clicked) {
+		sett_screen->btn_p1.is_clicked = 0;
+		code = game_set_first_player(settings, 1);
+		if (code != SUCCESS) fprintf(stderr, "err code - %d\n", code);
+	}
+	else if (sett_screen->btn_p2.is_clicked) {
+		sett_screen->btn_p2.is_clicked = 0;
+		code = game_set_first_player(settings, 2);
+		if (code != SUCCESS) fprintf(stderr, "err code - %d\n", code);
+	}
 	else if (sett_screen->timelimit_field.is_clicked) {
 		if (!sett_screen->timelimit_field.is_active) {
 			sett_screen->timelimit_field.is_active = 1;
@@ -1753,7 +1802,6 @@ static void ui_update_logic_game(SDL_Renderer* renderer,
 	if (g_screen->message_ask_for_username) {
 		//username window
 		if (g_screen->input_field.is_clicked) {
-			printf("CLICKED!!!!\n");
 			if (!g_screen->input_field.is_active) {
 				g_screen->input_field.is_active = 1;
 				SDL_StartTextInput();
@@ -1829,7 +1877,6 @@ static void ui_update_logic_game(SDL_Renderer* renderer,
 	else if (g_screen->input_switch) {
 		if (!g_screen->text_input) {
 			if (is_cell_empty(game_get_field(*game), g_screen->cursor_y, g_screen->cursor_x) && is_letter_near(game_get_field(*game), g_screen->cursor_y, g_screen->cursor_x)) {
-				printf("start input\n");
 				g_screen->is_cursor_active = 0;
 
 				g_screen->btn_up.is_hovered = 0;
@@ -1846,7 +1893,6 @@ static void ui_update_logic_game(SDL_Renderer* renderer,
 		}
 		else {
 			if (g_screen->letter == '\0') {
-				printf("end input\n");
 				g_screen->text_input = 0;
 
 				//in case user pressed ESCAPE while selecting the letter

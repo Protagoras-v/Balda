@@ -68,5 +68,13 @@ int main() {
 		ui_render(renderer, &context, &main_screen, &sett_screen, &lb_screen, &g_screen);
 	}
 
+	ui_destroy_screen_context(renderer, &context, &main_screen, &sett_screen, &lb_screen, &game, &g_screen, settings);
+	dict_destroy(dict);
+	if (game != NULL) {
+		game_destroy(&game);
+	}
+	game_leaderboard_destroy(lb);
+	free(settings);
+
 	return 0;
 }

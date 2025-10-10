@@ -505,7 +505,6 @@ StatusCode game_add_cell_into_word(Game* game, int y, int x) {
 
 StatusCode game_cancel_word_selection(Game* game) {
 	if (game == NULL) return ERROR_NULL_POINTER;
-	printf("yes\n");
 	return clear_word_selection(&game->current_move);
 }
 
@@ -818,7 +817,7 @@ StatusCode game_apply_generated_move(Game* game, Move move) {
 	game->current_move.y = -1;
 	game->current_move.x = -1;
 	game->current_move.word_len = 0;
-	game->current_move.score = game->current_player == 1 ? game->scores[1] : game->scores[0]; //set next player`s starting score
+	game->current_move.score = game->current_player == 1 ? game->scores[0] : game->scores[1]; //set next player`s starting score
 
 	return SUCCESS;
 }
